@@ -18,6 +18,7 @@ class RRT:
         self.max_steer = max_steer
         self.max_iter = max_iter
         self.threshold = threshold
+        self.counter = 0
         self.tree = [self.start]
         
     # def goal_reached(new_node):
@@ -27,6 +28,7 @@ class RRT:
     def rrt_search(self):
         for _ in range(self.max_iter):
             rand_point = self.random_point()
+            self.counter += 1
             nearest_node = self.find_nearest_node(rand_point)
             # Collision check in steer function
             new_node = self.steer(nearest_node, rand_point)
@@ -106,7 +108,7 @@ class RRT:
     def random_point(self):
         # Generate a random point within the search space
         # Bias sampling towards goal: every _ samples, use goal as sample point
-        if self.counter % 200 == 0:
+        if self.counter != 0 and self.counter % 100 == 0:
             return self.goal
         return np.random.uniform(0, 10, size=(2,)) # change 0, 10 to map width, height constraints
 
