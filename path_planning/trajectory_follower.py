@@ -41,89 +41,156 @@ class PurePursuit(Node):
                                                  self.pose_callback,
                                                  1)
         
-        self.point_pub = self.create_publisher(Marker, "/closest_point", 1)
+        self.target_pub = self.create_publisher(Marker, "/target_point", 1)
+        self.radius_pub = self.create_publisher(Marker, "/radius", 1)
+
+        self.max_steer = 0.34
 
     def pose_callback(self, odometry_msg):
-        def rotation_matrix(angle):
-            return np.array([[np.cos(angle), -np.sin(angle)],
-                            [np.sin(angle), np.cos(angle)]])
-        
-        # convert [x y theta] to 3x3 transform matrix
-        def transform_matrix(pose):
-            X = np.eye(3)
-            X[:2, :2] = rotation_matrix(pose[2])
-            X[:2, -1] = np.array(pose[:2])
-            return X
+
+        # no trajectory to follow
         if not self.trajectory.points: return
+
+        # retrieve odometry data
         car_pos_x = odometry_msg.pose.pose.position.x
         car_pos_y = odometry_msg.pose.pose.position.y
         car_angle = 2 * np.arctan2(odometry_msg.pose.pose.orientation.z, odometry_msg.pose.pose.orientation.w)
 
-        car_vec = np.array([car_pos_x, car_pos_y])
-
+        # process trajectory points into np arrays
         points = np.array(self.trajectory.points)
-        # self.get_logger().info("%s" % points)
         traj_x = points[:, 0]
         traj_y = points[:, 1]
 
+        # get info about closest segment
         closest_segment_index = self.find_closest_segment(traj_x, traj_y, car_pos_x, car_pos_y)
-
-        
         seg_end_x, seg_end_y = traj_x[closest_segment_index + 1], traj_y[closest_segment_index + 1]
-        seg_angle_error = np.clip(np.abs(np.arctan2(seg_end_y - car_pos_y, seg_end_x - car_pos_x) - car_angle), 0, np.pi/2)
-        self.lookahead = 2.0 - (seg_angle_error / (np.pi / 2)) * 1.0
+        car_to_seg_end_x, car_to_seg_end_y = self.to_car_frame(seg_end_x, seg_end_y, car_pos_x, car_pos_y, car_angle)
 
-        lookahead_points = self.get_lookahead_point(traj_x[closest_segment_index], traj_y[closest_segment_index],
+        # on last segment and past end
+        if (closest_segment_index + 1 == len(traj_x) - 1 and \
+            car_to_seg_end_x < 0): 
+            drive_msg = AckermannDriveStamped()
+            drive_msg.drive.speed = 0.0
+            self.drive_pub.publish(drive_msg)
+            return
+
+
+        lookahead_point = self.get_lookahead_point(traj_x[closest_segment_index], traj_y[closest_segment_index],
                                                     traj_x[closest_segment_index + 1], traj_y[closest_segment_index + 1],
                                                     car_pos_x, car_pos_y)
 
-        closest_point_x, closest_point_y = seg_end_x, seg_end_y
-        if lookahead_points is not None:
-            # # self.get_logger().info("no points found")
-            # drive_msg = AckermannDriveStamped()
-            # drive_msg.drive.speed = self.lookahead * 2.0
-            # self.drive_pub.publish(drive_msg)
-            # return
-            closest_point_x, closest_point_y = lookahead_points
-        # VisualizationTools.plot_line(np.array([car_pos_x, closest_point_x]), np.array([car_pos_y, closest_point_y]), self.point_pub, frame="map")
-        VisualizationTools.plot_line(np.array([car_pos_x, traj_x[closest_segment_index + 1]]), np.array([car_pos_y, traj_y[closest_segment_index + 1]]), self.point_pub, frame="map")
-        # closest_point_x = traj_x[0]
-        # closest_point_y = traj_y[0]
+        # default target point is end of closest segment (in case no lookahead point found)
+        target_point_x, target_point_y = seg_end_x, seg_end_y
 
-        angle_error = np.arctan2(closest_point_y - car_pos_y, closest_point_x - car_pos_x) - car_angle
-        angle_error /= 4
-        angle_error = np.clip(angle_error, -0.34, 0.34)
+        # if found lookahead point, set target to it
+        if lookahead_point is not None:
+            target_point_x, target_point_y = lookahead_point
+
+        # convert target point to the car's frame
+        car_to_target_x, car_to_target_y = self.to_car_frame(target_point_x, target_point_y, car_pos_x, car_pos_y, car_angle)
+
+
+        # Visualize Stuff
+        VisualizationTools.plot_line(np.array([0, car_to_target_x]), np.array([0, car_to_target_y]), self.target_pub, frame="base_link")
+        angles = np.linspace(-np.pi, np.pi, 100)
+        circle_x = self.lookahead * np.cos(angles)
+        circle_y = self.lookahead * np.sin(angles)
+        VisualizationTools.plot_line(circle_x, circle_y, self.radius_pub, frame="base_link")
+
+
+        # angle to target point
+        angle_error = np.arctan2(car_to_target_y, car_to_target_x)
+
+        # Adjust lookahead based on angle to lookahead point
+        # higher angle error ~ lower lookahead distance
+        min_lookahead = 1.0
+        max_lookahead = 2.0
+        min_lookahead_angle = np.deg2rad(90) # the angle s.t. the lookahead will be at its minimum
+        self.lookahead = max_lookahead - np.clip(np.abs(angle_error), 0, min_lookahead_angle) / min_lookahead_angle * (max_lookahead - min_lookahead)
 
         drive_msg = AckermannDriveStamped()
         drive_msg.drive.speed = self.lookahead * 2.0
-        # self.get_logger().info("%s" % (self.lookahead * 2.0))
-        drive_msg.drive.steering_angle = angle_error
+
+        steer_angle = np.arctan2((self.wheelbase_length*np.sin(angle_error)), 
+                                 0.5*self.lookahead + self.wheelbase_length*np.cos(angle_error))
+        
+        steer_angle = np.clip(steer_angle, -self.max_steer, self.max_steer)
+        drive_msg.drive.steering_angle = steer_angle
         self.drive_pub.publish(drive_msg)
 
     def find_closest_segment(self, x, y, car_x, car_y):
-        def min_dist(x1, y1, x2, y2, px, py):
-            v = np.array([x1, y1])
-            w = np.array([x2, y2])
-            p = np.array([px, py])
-            l2 = np.dot(w - v, w - v)
-            if (l2 == 0.0): return np.linalg.norm(p - v)
+        """Finds closest line segment in trajectory and returns its index.
+            Code based on https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment/1501725#1501725
+            and modified to use numpy arrays for better speed
 
-            t = max(0, min(1, np.dot(p - v, w  - v) / l2))
-            projection = v + t * (w - v)
-            return np.linalg.norm(p - projection)
+        Args:
+            x (1D np array): x values of trajectory
+            y (1D np array): y values of trajectorffy
+            car_x (float): x position of car
+            car_y (float): y position of car
+        Returns:
+            int: index of start of closest line segment in the trajectory arrays
+        """
+        # # Non-Numpy Vectorized Version (keeping in case it's faster)
+        # def min_dist(x1, y1, x2, y2, px, py):
+        #     v = np.array([x1, y1])
+        #     w = np.array([x2, y2])
+        #     p = np.array([px, py])
+        #     l2 = np.dot(w - v, w - v)
+        #     if (l2 == 0.0): return np.linalg.norm(p - v)
+
+        #     t = max(0, min(1, np.dot(p - v, w  - v) / l2))
+        #     projection = v + t * (w - v)
+        #     return np.linalg.norm(p - projection)
         
-        distances = np.zeros(len(x) - 1)
-        for i in range(len(x) - 1):
-            distances[i] = min_dist(x[i], y[i], x[i + 1], y[i + 1], car_x, car_y)
-            if np.linalg.norm(np.array([x[i + 1] - car_x, y[i + 1] - car_y])) < self.lookahead:
-                distances[i] += 100
-        return np.where(distances == np.min(distances))[0][0]
+        # distances = np.zeros(len(x) - 1)
+        # for i in range(len(x) - 1):
+        #     distances[i] = min_dist(x[i], y[i], x[i + 1], y[i + 1], car_x, car_y)
+        #     if np.linalg.norm(np.array([x[i + 1] - car_x, y[i + 1] - car_y])) < self.lookahead:
+        #         distances[i] += 100
+        # return np.where(distances == np.min(distances))[0][0]
+        
+        points = np.vstack((x, y)).T
+        v = points[:-1, :] # segment start points
+        w = points[1:, :] # segment end points
+        p = np.array([[car_x, car_y]])
+        
+        l2 = np.sum((w - v)**2, axis=1)
+
+        t = np.maximum(0, np.minimum(1, np.sum((p - v) * (w - v), axis=1) / l2))
+
+        projections = v + t[:, np.newaxis] * (w - v)
+        min_distances = np.linalg.norm(p - projections, axis=1)
+
+        # if too close to end point of segment, take it out of consideration for closest line segment
+        end_point_distances = np.linalg.norm(w-p, axis=1)
+        min_distances[np.where(end_point_distances < self.lookahead)] += np.inf
+
+        closest_segment_index = np.where(min_distances == np.min(min_distances))[0][0]
+
+        return closest_segment_index
+
 
     def get_lookahead_point(self, x1, y1, x2, y2, origin_x, origin_y):
-        Q = np.array([origin_x, origin_y])                  # Centre of circle
-        r = self.lookahead                  # Radius of circle
+        """Based on https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment/1501725#1501725.
+            Finds lookahead point (intersection between circle and line segment).
 
-        P1 = np.array([x1, y1])      # Start of line segment
+        Args:
+            x1 (float): line segment start x
+            y1 (float): line segment start y
+            x2 (float): line segment end x
+            y2 (float): line segment end y
+            origin_x (float): center of circle x
+            origin_y (float): center of circle y
+
+        Returns:
+            1D np array of size 2: point of intersection (not necessarily on the line segment). 
+            None if no intersection even if line segment is extended
+        """
+        Q = np.array([origin_x, origin_y])                  # Centre of circle
+        r = self.lookahead  # Radius of circle
+
+        P1 = np.array([x1, y1])  # Start of line segment
         P2 = np.array([x2, y2])
         V = P2 - P1  # Vector along line segment
         a = np.dot(V, V)
@@ -138,24 +205,29 @@ class PurePursuit(Node):
         t1 = (-b + sqrt_disc) / (2 * a)
         t2 = (-b - sqrt_disc) / (2 * a)
 
-        if not (0 <= t1 <= 1 or 0 <= t2 <= 1):
-            return None
-        if not (0 <= t2 <= 1):
-            return P1 + t1 * V
-        if not (0 <= t1 <= 1):
-            return P1 + t2 * V
+        t = max(t1, t2)
 
-        intersect1 = P1 + t1 * V
-        intersect2 = P1 + t2 * V
+        if (t < 0): return None
 
-        intersect = intersect1
-        if np.linalg.norm(P2 - intersect2) < np.linalg.norm(P2 - intersect2):
-            intersect = intersect2
-
-        return intersect
-
-        t = max(0, min(1, - b / (2 * a)))
         return P1 + t * V
+    
+    # convert a point from the map frame to the car frame
+    def to_car_frame(self, x, y, car_x, car_y, car_angle):
+        def rotation_matrix(angle):
+            return np.array([[np.cos(angle), -np.sin(angle)],
+                            [np.sin(angle), np.cos(angle)]])
+    
+        # convert [x y theta] to 3x3 transform matrix
+        def transform_matrix(pose):
+            X = np.eye(3)
+            X[:2, :2] = rotation_matrix(pose[2])
+            X[:2, -1] = np.array(pose[:2])
+            return X
+        world_to_car = transform_matrix([car_x, car_y, car_angle])
+        world_to_target = transform_matrix([x, y, 0.0])
+        car_to_target = np.linalg.inv(world_to_car) @ world_to_target
+
+        return car_to_target[:2, 2]
 
 
     def trajectory_callback(self, msg):
@@ -169,6 +241,7 @@ class PurePursuit(Node):
 
 
 def main(args=None):
+
     rclpy.init(args=args)
     follower = PurePursuit()
     rclpy.spin(follower)
