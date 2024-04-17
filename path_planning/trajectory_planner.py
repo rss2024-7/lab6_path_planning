@@ -54,18 +54,23 @@ class PathPlan(Node):
         self.map = None
         self.trajectory = LineTrajectory(node=self, viz_namespace="/planned_trajectory")
 
-
         self.map_size = None
 
     def map_cb(self, msg):
         timestamp = msg.header.stamp
         frame_id = msg.header.frame_id
-        map_width = msg.info.width
-        map_height = msg.info.height
-        map_resolution = msg.info.resolution  # resolution in meters/cell
-        map_data = msg.data
+        self.map_width = msg.info.width
+        self.map_height = msg.info.height
+        self.map_resolution = msg.info.resolution  # resolution in meters/cell
+        self.map_data = msg.data
+        self.map_orientation = msg.info.origin.orientation
+        self.map_position = msg.info.origin.position
     
-        self.map_size = (map_width, map_height)
+        self.map_size = (self.map_width, self.map_height)
+
+        self.get_logger().info("orientation: ", str(self.map_orientation))
+        self.get_logger().info("position: ", str(self.map_orientation))
+        
 
 
     def pose_cb(self, msg):
@@ -81,6 +86,10 @@ class PathPlan(Node):
         orientation_w = msg.pose.pose.orientation.w
         theta = 2 * np.atan2(orientation_z, orientation_w)
         self.current_pose = np.array([position_x, position_y, theta]) 
+        
+        # reset the path
+        self.trajectory.clear()
+        self.trajectory.addPoint((position_x, position_y))
 
     def goal_cb(self, msg):
         # gets the goal pose
@@ -99,11 +108,46 @@ class PathPlan(Node):
         assert self.current_pose is not None
         assert self.map is not None
 
+        # add the last point to the trajectory
+        self.trajectory.addPoint((position_x, position_y))
+
         self.plan_path(self.current_pose, self.goal_pose, self.map)
 
     def plan_path(self, start_point, end_point, map):
         self.traj_pub.publish(self.trajectory.toPoseArray())
         self.trajectory.publish_viz()
+
+
+    # added
+    def pixel_to_real(pixel):
+        x = 25.900000
+        y = 48.50000
+        theta = 3.14
+        scale = 0.0504
+        transform = np.array([[np.cos(theta), -np.sin(theta), x],
+                    [np.sin(theta), np.cos(theta), y],
+                    [0,0,1]])
+
+        pixel = np.array([pixel[0], pixel[1]]) * scale
+        pixel = np.array([*pixel,1])
+        pixel = np.linalg.inv(transform) @ pixel
+        point = pixel
+        return point
+
+    def real_to_pixel(point):
+        point = np.array([point[0], point[1], 1])
+        x = 25.900000
+        y = 48.50000
+        theta = 3.14
+        scale = 0.0504
+        transform = np.array([[np.cos(theta), -np.sin(theta), x],
+                    [np.sin(theta), np.cos(theta), y],
+                    [0,0,1]])
+
+        point = transform @ point
+        point = point / scale
+        pixel = point
+        return pixel
 
 
 def main(args=None):
