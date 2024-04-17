@@ -1,3 +1,16 @@
+"""
+Add the following to dockerfile:
+
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install drake
+
+
+To test:
+ros2 launch path_planning sim_plan.launch.xml
+ros2 launch path_planning build_trajectory.launch.xml
+"""
+
+
 import rclpy
 from rclpy.node import Node
 
@@ -50,10 +63,26 @@ class PathPlan(Node):
             10
         )
 
+        # To assist in building convex sets
+        self.pose_sub = self.create_subscription(
+            PoseWithCovarianceStamped, 
+            "/initialpose",
+            self.pose_callback,
+            1
+        )
+
         self.current_pose = None
         self.goal_pose = None
         self.map = None
         self.trajectory = LineTrajectory(node=self, viz_namespace="/planned_trajectory")
+
+        # Vpolytope constructor: Constructs the polytope from a d-by-n matrix, where d is the ambient dimension, and n is the number of vertices.
+        self.convex_sets = [
+            np.array([0, 282],
+                     [0, 345],
+                     [45, 282],
+                     [95, 345]),
+        ]
 
     def map_cb(self, msg):
         timestamp = msg.header.stamp
@@ -98,6 +127,18 @@ class PathPlan(Node):
     def plan_path(self, start_point, end_point, map):
         self.traj_pub.publish(self.trajectory.toPoseArray())
         self.trajectory.publish_viz()
+
+
+    def pose_callback(self, msg):
+        """
+        Helper for manually defining convex sets
+        """
+        self.get_logger().info("initial pose")
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        angle = 2 * np.arctan2(msg.pose.pose.orientation.z, msg.pose.pose.orientation.w)
+
+        self.get_logger().info(f"initial pose set: {x}, {y}, {angle}")
 
 
 def main(args=None):
