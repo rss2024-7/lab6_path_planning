@@ -6,6 +6,7 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray
 from nav_msgs.msg import OccupancyGrid
 from .utils import LineTrajectory
 
+import numpy as np
 
 class PathPlan(Node):
     """ Listens for goal pose published by RViz and uses it to plan a path from
@@ -48,16 +49,57 @@ class PathPlan(Node):
             10
         )
 
+        self.current_pose = None
+        self.goal_pose = None
+        self.map = None
         self.trajectory = LineTrajectory(node=self, viz_namespace="/planned_trajectory")
 
-    def map_cb(self, msg):
-        raise NotImplementedError
 
-    def pose_cb(self, pose):
-        raise NotImplementedError
+        self.map_size = None
+
+    def map_cb(self, msg):
+        timestamp = msg.header.stamp
+        frame_id = msg.header.frame_id
+        map_width = msg.info.width
+        map_height = msg.info.height
+        map_resolution = msg.info.resolution  # resolution in meters/cell
+        map_data = msg.data
+    
+        self.map_size = (map_width, map_height)
+
+
+    def pose_cb(self, msg):
+        # gets the initial pose 
+        timestamp = msg.header.stamp
+        frame_id = msg.header.frame_id
+        position_x = msg.pose.pose.position.x
+        position_y = msg.pose.pose.position.y
+        position_z = msg.pose.pose.position.z
+        orientation_x = msg.pose.pose.orientation.x
+        orientation_y = msg.pose.pose.orientation.y
+        orientation_z = msg.pose.pose.orientation.z
+        orientation_w = msg.pose.pose.orientation.w
+        theta = 2 * np.atan2(orientation_z, orientation_w)
+        self.current_pose = np.array([position_x, position_y, theta]) 
 
     def goal_cb(self, msg):
-        raise NotImplementedError
+        # gets the goal pose
+        timestamp = msg.header.stamp
+        frame_id = msg.header.frame_id
+        position_x = msg.pose.position.x
+        position_y = msg.pose.position.y
+        position_z = msg.pose.position.z
+        orientation_x = msg.pose.orientation.x
+        orientation_y = msg.pose.orientation.y
+        orientation_z = msg.pose.orientation.z
+        orientation_w = msg.pose.orientation.w
+        theta = 2 * np.atan2(orientation_z, orientation_w)
+        self.goal_pose = np.array([position_x, position_y, theta]) # ***
+
+        assert self.current_pose is not None
+        assert self.map is not None
+
+        self.plan_path(self.current_pose, self.goal_pose, self.map)
 
     def plan_path(self, start_point, end_point, map):
         self.traj_pub.publish(self.trajectory.toPoseArray())
