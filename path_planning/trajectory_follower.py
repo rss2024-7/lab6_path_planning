@@ -1,6 +1,6 @@
 import rclpy
 from ackermann_msgs.msg import AckermannDriveStamped
-from geometry_msgs.msg import PoseArray
+from geometry_msgs.msg import PoseArray, PointStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from visualization_msgs.msg import Marker
@@ -26,6 +26,16 @@ class PurePursuit(Node):
         self.speed = 4.0  # FILL IN #
         self.wheelbase_length = 0.3  # FILL IN #
 
+        # Adjust lookahead based on angle to lookahead point
+        # higher angle error ~ lower lookahead distance
+        self.min_lookahead = 1.0 
+        self.max_lookahead = 2.0 
+
+        self.speed_to_lookahead = 1.125
+        
+        # the angle to target s.t. the lookahead will be at its minimum
+        self.min_lookahead_angle = np.deg2rad(90) 
+
         self.trajectory = LineTrajectory("/followed_trajectory")
 
         self.traj_sub = self.create_subscription(PoseArray,
@@ -41,10 +51,21 @@ class PurePursuit(Node):
                                                  self.pose_callback,
                                                  1)
         
+        self.point_sub = self.create_subscription(PointStamped,
+                                                 "/clicked_point",
+                                                 self.point_callback,
+                                                 1)
+        
         self.target_pub = self.create_publisher(Marker, "/target_point", 1)
         self.radius_pub = self.create_publisher(Marker, "/radius", 1)
 
         self.max_steer = 0.34
+
+    def point_callback(self, point_msg):
+        self.get_logger().info("adding point")
+        self.trajectory.addPoint((point_msg.point.x, point_msg.point.y))
+        self.trajectory.publish_viz(duration=0.0)
+        self.trajectory.save("trajectory_custom.traj")
 
     def pose_callback(self, odometry_msg):
 
@@ -95,21 +116,21 @@ class PurePursuit(Node):
         angles = np.linspace(-np.pi, np.pi, 100)
         circle_x = self.lookahead * np.cos(angles)
         circle_y = self.lookahead * np.sin(angles)
+        circle_x = 0.9 * np.cos(angles)
+        circle_y = 0.9 * np.sin(angles)
         VisualizationTools.plot_line(circle_x, circle_y, self.radius_pub, frame="base_link")
 
 
         # angle to target point
         angle_error = np.arctan2(car_to_target_y, car_to_target_x)
 
-        # Adjust lookahead based on angle to lookahead point
-        # higher angle error ~ lower lookahead distance
-        min_lookahead = 1.0
-        max_lookahead = 2.0
-        min_lookahead_angle = np.deg2rad(90) # the angle s.t. the lookahead will be at its minimum
-        self.lookahead = max_lookahead - np.clip(np.abs(angle_error), 0, min_lookahead_angle) / min_lookahead_angle * (max_lookahead - min_lookahead)
+        self.lookahead = self.max_lookahead \
+                            - np.clip(np.abs(angle_error), 0, 
+                                        self.min_lookahead_angle) / self.min_lookahead_angle \
+                                        * (self.max_lookahead - self.min_lookahead)
 
         drive_msg = AckermannDriveStamped()
-        drive_msg.drive.speed = self.lookahead * 2.0
+        drive_msg.drive.speed = self.lookahead * self.speed_to_lookahead
 
         steer_angle = np.arctan2((self.wheelbase_length*np.sin(angle_error)), 
                                  0.5*self.lookahead + self.wheelbase_length*np.cos(angle_error))
@@ -131,6 +152,26 @@ class PurePursuit(Node):
         Returns:
             int: index of start of closest line segment in the trajectory arrays
         """
+        points = np.vstack((x, y)).T
+        v = points[:-1, :] # segment start points
+        w = points[1:, :] # segment end points
+        p = np.array([[car_x, car_y]])
+        
+        l2 = np.sum((w - v)**2, axis=1)
+
+        t = np.maximum(0, np.minimum(1, np.sum((p - v) * (w - v), axis=1) / l2))
+
+        projections = v + t[:, np.newaxis] * (w - v)
+        min_distances = np.linalg.norm(p - projections, axis=1)
+
+        # if too close to end point of segment, take it out of consideration for closest line segment
+        end_point_distances = np.linalg.norm(w-p, axis=1)
+        min_distances[np.where(end_point_distances[:-1] < self.lookahead)] += np.inf
+
+        closest_segment_index = np.where(min_distances == np.min(min_distances))[0][0]
+
+        return closest_segment_index
+    
         # # Non-Numpy Vectorized Version (keeping in case it's faster)
         # def min_dist(x1, y1, x2, y2, px, py):
         #     v = np.array([x1, y1])
@@ -149,26 +190,6 @@ class PurePursuit(Node):
         #     if np.linalg.norm(np.array([x[i + 1] - car_x, y[i + 1] - car_y])) < self.lookahead:
         #         distances[i] += 100
         # return np.where(distances == np.min(distances))[0][0]
-        
-        points = np.vstack((x, y)).T
-        v = points[:-1, :] # segment start points
-        w = points[1:, :] # segment end points
-        p = np.array([[car_x, car_y]])
-        
-        l2 = np.sum((w - v)**2, axis=1)
-
-        t = np.maximum(0, np.minimum(1, np.sum((p - v) * (w - v), axis=1) / l2))
-
-        projections = v + t[:, np.newaxis] * (w - v)
-        min_distances = np.linalg.norm(p - projections, axis=1)
-
-        # if too close to end point of segment, take it out of consideration for closest line segment
-        end_point_distances = np.linalg.norm(w-p, axis=1)
-        min_distances[np.where(end_point_distances < self.lookahead)] += np.inf
-
-        closest_segment_index = np.where(min_distances == np.min(min_distances))[0][0]
-
-        return closest_segment_index
 
 
     def get_lookahead_point(self, x1, y1, x2, y2, origin_x, origin_y):
