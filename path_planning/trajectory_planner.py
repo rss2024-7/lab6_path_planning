@@ -88,8 +88,8 @@ class PathPlan(Node):
         self.current_pose = np.array([position_x, position_y, theta]) 
         
         # reset the path
-        self.trajectory.clear()
-        self.trajectory.addPoint((position_x, position_y))
+        # self.trajectory.clear()
+        # self.trajectory.addPoint((position_x, position_y))
 
     def goal_cb(self, msg):
         # gets the goal pose
@@ -109,17 +109,25 @@ class PathPlan(Node):
         assert self.map is not None
 
         # add the last point to the trajectory
-        self.trajectory.addPoint((position_x, position_y))
+        # self.trajectory.addPoint((position_x, position_y))
 
         self.plan_path(self.current_pose, self.goal_pose, self.map)
 
     def plan_path(self, start_point, end_point, map):
+        self.trajectory.clear()
+        self.trajectory.addPoint(start_point)
+
+
+        # add intermediate points
+
+        self.trajectory.addPoint(end_point)
         self.traj_pub.publish(self.trajectory.toPoseArray())
         self.trajectory.publish_viz()
 
 
     # added
     def pixel_to_real(pixel):
+        # need to check if this returns [u, v] or [v, u]
         x = 25.900000
         y = 48.50000
         theta = 3.14
@@ -135,6 +143,7 @@ class PathPlan(Node):
         return point
 
     def real_to_pixel(point):
+        # need to check if this returns [x, y] or [y, x]
         point = np.array([point[0], point[1], 1])
         x = 25.900000
         y = 48.50000
