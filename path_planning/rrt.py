@@ -11,7 +11,7 @@ class Node:
         self.parent = None
 
 class RRT:
-    def __init__(self, start, goal, step_size, max_iter, threshold, max_steer):
+    def __init__(self, start, goal, step_size, max_iter, threshold, max_steer, obs, map_dims):
         self.start = Node(start)
         self.goal = goal
         self.step_size = step_size
@@ -20,6 +20,8 @@ class RRT:
         self.threshold = threshold
         self.counter = 0
         self.tree = [self.start]
+        self.obstacles = obs
+        self.map_dims = map_dims
         
     # def goal_reached(new_node):
     #     # Implement Broad + Narrow phase check
@@ -51,29 +53,33 @@ class RRT:
                 min_distance = distance_to_point
         return nearest_node
     
-    def angle_diff(self, from_node, to_point): 
+    def angle_diff(self, curr_direction, prev_direction): 
         # Find angle between current direction vector and prev direction vector
         
-        # prev_mag = np.linalg.norm(from_node.state - from_node.parent.state)
-        prev_direction = (from_node.state - from_node.parent.state)/np.linalg.norm(from_node.state - from_node.parent.state)
+        # # prev_mag = np.linalg.norm(from_node.state - from_node.parent.state)
+        # prev_direction = (-from_node.state + from_node.parent.state)/np.linalg.norm(-from_node.state + from_node.parent.state)
 
-        # curr_mag =  np.linalg.norm(to_point - from_node.state)
-        curr_direction = (to_point - from_node.state)/np.linalg.norm(to_point - from_node.state)
+        # # curr_mag =  np.linalg.norm(to_point - from_node.state)
+        # curr_direction = (to_point - from_node.state)/np.linalg.norm(to_point - from_node.state)
 
         # Use dot product to find angle_diff, mag of both vectors should be 1
         theta = np.arccos(np.dot(curr_direction, prev_direction))
     
-        return abs(theta)
+        return theta
     
     def steer(self, from_node, to_point):
         # Get direction
         direction = (to_point - from_node.state)/np.linalg.norm(to_point - from_node.state)
+        # prev direction
+        prev_direction = (-from_node.state + from_node.parent.state)/np.linalg.norm(-from_node.state + from_node.parent.state)
         # Compute new state/point
         new_state = from_node.state + self.step_size * direction
         # constrain to max_steering angle 
-        if self.angle_diff(from_node, new_state) > self.max_steer:
+        if abs(self.angle_diff(direction, prev_direction)) > self.max_steer:
                 # Need to correct new_direction calculation, use rotation matrix
-                new_direction = np.array([np.cos(self.max_steer), np.sin(self.max_steer)])
+                rotate = np.array([np.cos(self.max_steer), -np.sin(self.max_steer)], \
+                                 [np.sin(self.max_steer), np.cos(self.max_steer)] )
+                new_direction = rotate@np.transpose(prev_direction)
                 new_state = from_node.state + self.step_size * new_direction
         if self.collision_free(from_node.state, new_state):
             new_node = Node(new_state)
@@ -100,10 +106,31 @@ class RRT:
 
         # create vector array of cells touched by line
         diff = point2 - point1
+        slope = intercept = 0
+        if diff[0] != 0:
+            slope = diff[1]/diff[0]
+            intercept = point1[1] - slope*point1[0]
+            x_arr = np.linspace(point1[0], point2[0], num=abs(diff[0])+1)
+            y_arr = slope*x_arr + intercept
+        else: 
+            if diff[1] == 0:
+                slope = np.inf
+                x_arr = np.full((1, abs(diff[0])+1), point1[0] ) 
+                y_arr = np.linspace(point1[1], point2[1], num=abs(diff[1])+1)
+
 
         # check cells' occupancy probability
+        inds = np.vstack(x_arr, y_arr)
+        inds = np.transpose(inds)
+        line_inds = set(map(tuple, inds)) # array of tuples (x,y)
 
-        return True  
+
+        # set intersect indices and obstacle indices
+        collisions = line_inds.intersection(self.obstacles)
+
+        if collisions:
+            return False
+        return True
 
     def random_point(self):
         # Generate a random point within the search space
