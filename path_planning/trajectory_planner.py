@@ -21,7 +21,7 @@ from rclpy.node import Node
 
 assert rclpy
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray, Pose
 from nav_msgs.msg import OccupancyGrid
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point32
@@ -257,7 +257,7 @@ class PathPlan(Node):
         edges.append(gcs.AddEdges(gcs_regions, target))
         
         gcs.AddTimeCost()
-        gcs.AddVelocityBounds(np.array([1.0, 1.0]), np.array([1.0, 1.0]))
+        gcs.AddVelocityBounds(np.array([-1.0, -1.0]), np.array([1.0, 1.0]))
 
         options = GraphOfConvexSetsOptions()
         options.preprocessing = True
@@ -269,11 +269,19 @@ class PathPlan(Node):
 
         if not result.is_success():
             self.get_logger().info("GCS Solve Fail.")
-            return
-        
-        self.get_logger().info(traj)
 
-        self.traj_pub.publish(self.trajectory.toPoseArray())
+        traj_pose_array = PoseArray()
+        for t in np.linspace(traj.start_time(), traj.end_time(), 100):
+            self.get_logger().info(f"{traj.value(t)}")
+
+            pose = Pose()
+            pose.position.x = float(traj.value(t)[0][0])
+            pose.position.y = float(traj.value(t)[0][1])
+            pose.position.z = 0.0  # Assuming z is 0 for 2D coordinates
+            pose.orientation.w = 1.0  # Neutral orientation
+            traj_pose_array.poses.append(pose)
+
+        self.traj_pub.publish(traj_pose_array)
         self.trajectory.publish_viz()
 
 
