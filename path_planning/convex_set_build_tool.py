@@ -2,7 +2,7 @@ import cv2
 import sys
 import numpy as np
 
-convex_sets = [
+pixel_convex_sets = [
     np.array([[0, 280],
               [0, 345],
               [95, 345],
@@ -213,35 +213,11 @@ def convert_polygons_to_map_coordinates(pixel_polygons):
 
     return map_polygons
 
-convex_sets = convert_polygons_to_map_coordinates(convex_sets)
+convex_sets = convert_polygons_to_map_coordinates(pixel_convex_sets)
 
 
 
 if __name__ == "__main__":
-
-    def pixel_to_real(pixel):
-        # need to check if this returns [u, v] or [v, u]
-        x = 25.900000
-        y = 48.50000
-        theta = 3.14
-        scale = 0.0504
-        transform = np.array([[np.cos(theta), -np.sin(theta), x],
-                    [np.sin(theta), np.cos(theta), y],
-                    [0,0,1]])
-
-        pixel = np.array([pixel[0], pixel[1]]) * scale
-        pixel = np.array([*pixel,1])
-        pixel = np.linalg.inv(transform) @ pixel
-        point = pixel
-        # return point
-        return point[:2]
-    
-    x = np.array([[488, 280],
-              [529, 280],
-              [565, 345],
-              [527, 345]])
-    
-    print(np.apply_along_axis(pixel_to_real, axis=0, arr=x.T))
 
     def draw_translucent_polygon(img, points, color, opacity=0.5):
         """
@@ -272,7 +248,7 @@ if __name__ == "__main__":
         
     image = cv2.imread("map.png")
 
-    for polytope in convex_sets:
+    for polytope in pixel_convex_sets:
         image = draw_translucent_polygon(image, polytope, color=tuple(int(c) for c in np.random.choice(range(256), size=3)))
 
 

@@ -261,6 +261,7 @@ class PathPlan(Node):
         edges.append(gcs.AddEdges(source, gcs_regions))
         edges.append(gcs.AddEdges(gcs_regions, target))
         
+        gcs.AddPathLengthCost()
         gcs.AddTimeCost()
         gcs.AddVelocityBounds(np.array([-1.0, -1.0]), np.array([1.0, 1.0]))
 
