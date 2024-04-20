@@ -5,6 +5,8 @@ assert rclpy
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray
 from nav_msgs.msg import OccupancyGrid
 from .utils import LineTrajectory
+from .rrt_star import RRT_star
+from .rrt_star import Joint
 
 import numpy as np
 import cv2
@@ -51,6 +53,13 @@ class PathPlan(Node):
             10
         )
 
+        self.tree_pub = self.create_publisher(
+            PoseArray,
+            "tree",
+            10
+        )
+
+
         self.current_pose = None
         self.goal_pose = None
         self.map = None
@@ -80,8 +89,16 @@ class PathPlan(Node):
         self.map_data = msg.data
         self.map_orientation = msg.info.origin.orientation
         self.map_position = msg.info.origin.position
-    
-        # self.map_size = (self.map_width, self.map_height)
+        self.map_info = (self.map_data, self.map_width, self.map_height, self.map_resolution)
+
+        self.get_logger().info("map height: " + str(self.map_height))
+        self.get_logger().info("map width: " + str(self.map_width))
+        self.get_logger().info("map data length: " + str(len(self.map_data)))
+        self.get_logger().info("map [0][0]: " + str(self.pixel_to_real([0,0], self.transform, self.map_resolution)))
+        self.get_logger().info("map [0][map width]: " + str(self.pixel_to_real([0,self.map_width], self.transform, self.map_resolution)))
+        self.get_logger().info("map [map height][0]: " + str(self.pixel_to_real([self.map_height,0], self.transform, self.map_resolution)))
+        self.get_logger().info("map [map height][map width]: " + str(self.pixel_to_real([self.map_height,self.map_width], self.transform, self.map_resolution)))
+        self.get_logger().info("origin (25.9, 48.5) to pixel: " + str(self.real_to_pixel([25.9, 48.5], self.transform, self.map_resolution)))
 
 
         # self.get_logger().info("orientation: ", str(self.map_orientation))
@@ -105,11 +122,7 @@ class PathPlan(Node):
         self.current_pose = np.array([position_x, position_y, theta]) 
 
 
-        self.get_logger().info("current pose: " + np.array2string(self.current_pose))
-        
-        # reset the path
-        # self.trajectory.clear()
-        # self.trajectory.addPoint((position_x, position_y))
+        self.get_logger().info("starting pose: " + np.array2string(self.current_pose))
 
     def goal_cb(self, msg):
         # gets the goal pose
@@ -126,76 +139,56 @@ class PathPlan(Node):
         self.goal_pose = np.array([position_x, position_y, theta]) # ***
 
         
-        self.get_logger().info("goal: " + np.array2string(self.goal_pose))
+        self.get_logger().info("goal pose: " + np.array2string(self.goal_pose))
 
         assert self.current_pose is not None
         assert self.map is not None
 
 
-
-        # add the last point to the trajectory
-        # self.trajectory.addPoint((position_x, position_y))
-
-        
-        
-
         self.plan_path(self.current_pose, self.goal_pose, self.map)
 
     def plan_path(self, start_point, end_point, map):
-        # self.get_logger().info("orientation: " + str(self.map_orientation))
-        self.get_logger().info("goal: " + np.array2string(self.goal_pose))
-        pixel  = self.real_to_pixel(self.goal_pose)
-        self.get_logger().info("pixel: " + np.array2string(pixel))
-        real  = self.pixel_to_real(pixel)
-        self.get_logger().info("real: " + np.array2string(real))
 
-        probability = self.map_data[self.index_from_pixel(pixel)]
-        self.get_logger().info("probability: " + str(probability))
+        path = RRT_star(self.map_info, start_point, end_point).make_tree()
+        
+        self.trajectory.points = path
 
-        # self.get_logger().info("saving image")
-        # occupancy = np.zeros([self.map_height, self.map_width])
-        # for i in range(self.map_height):
-        #     for j in range(self.map_width):
-        #         ix = self.index_from_pixel([i,j])
-        #         if self.map_data[ix] == 100:
-        #             occupancy[i][j] = 255
+        # self.trajectory.clear()
+        # self.trajectory.addPoint(start_point)
 
-        # cv2.imwrite("./occupancy.png", occupancy)
+        # point = self.real_to_pixel(end_point, self.transform, self.map_resolution)
 
-        # self.get_logger().info("image saved")
+        # self.get_logger().info("point: " + np.array2string(end_point))
+        # self.get_logger().info("pixel: " + np.array2string(point))
 
 
-        self.trajectory.clear()
-        self.trajectory.addPoint(start_point)
+        # TO-DO add intermediate points
 
-
-        # add intermediate points
-
-        self.trajectory.addPoint(end_point)
+        # self.trajectory.addPoint(end_point)
         self.traj_pub.publish(self.trajectory.toPoseArray())
         self.trajectory.publish_viz()
 
 
-    def pixel_to_real(self, pixel, column_row=False):
+    def pixel_to_real(self, pixel, transform, resolution, column_row=False):
         # if column_row = True, pixel format is [v (column index), u (row index)] 
         if column_row:
             pixel = np.array([pixel[0], pixel[1]]) 
         else:
             pixel = np.array([pixel[1], pixel[0]]) 
 
-        pixel = pixel * self.map_resolution
+        pixel = pixel * resolution
         pixel = np.array([*pixel,1])
-        pixel = np.linalg.inv(self.transform) @ pixel
+        pixel = np.linalg.inv(transform) @ pixel
         point = pixel
 
         # returns real x,y 
         return point
 
-    def real_to_pixel(self, point,column_row=False):
+    def real_to_pixel(self, point, transform, resolution, column_row=False):
         #takes in [x,y] real coordinate
         point = np.array([point[0], point[1], 1])
-        point = self.transform @ point
-        point = point / self.map_resolution
+        point = transform @ point
+        point = point / resolution
         pixel = np.floor(point)
 
         if column_row: # returns [v (column index), u (row index)] 
@@ -204,12 +197,12 @@ class PathPlan(Node):
             # returns [u (row index), v (column index)]
             return np.array([pixel[1], pixel[0]])
     
-    def index_from_pixel(self, pixel, column_row=False):
+    def index_from_pixel(self, pixel, map_width, column_row=False):
         # calculate the index of the row-major map
         if column_row: # pixel = [v, u]
-            return int(pixel[1] * self.map_width + pixel[0])
+            return int(pixel[1] * map_width + pixel[0])
         else: # pixel = [u, v]
-            return int(pixel[0] * self.map_width + pixel[1])
+            return int(pixel[0] * map_width + pixel[1])
 
 def main(args=None):
     rclpy.init(args=args)
