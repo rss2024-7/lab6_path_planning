@@ -13,6 +13,11 @@ ros2 launch path_planning sim_plan.launch.xml
 or
 
 ros2 launch path_planning build_trajectory.launch.xml
+
+
+Visualize in RViz:
+ - /polygons                (displays vertices of convex sets)
+ - /trajectory/current      (displays solved trajectory)
 """
 
 
@@ -269,20 +274,23 @@ class PathPlan(Node):
 
         if not result.is_success():
             self.get_logger().info("GCS Solve Fail.")
+            return
 
         traj_pose_array = PoseArray()
         for t in np.linspace(traj.start_time(), traj.end_time(), 100):
             self.get_logger().info(f"{traj.value(t)}")
 
             pose = Pose()
-            pose.position.x = float(traj.value(t)[0][0])
-            pose.position.y = float(traj.value(t)[0][1])
+            pose.position.x = float(traj.value(t)[0,0])
+            pose.position.y = float(traj.value(t)[1,0])
             pose.position.z = 0.0  # Assuming z is 0 for 2D coordinates
             pose.orientation.w = 1.0  # Neutral orientation
             traj_pose_array.poses.append(pose)
 
+        # set frame so visualization works
+        traj_pose_array.header.frame_id = "/map"  # replace with your frame id
+
         self.traj_pub.publish(traj_pose_array)
-        self.trajectory.publish_viz()
 
 
 def main(args=None):
