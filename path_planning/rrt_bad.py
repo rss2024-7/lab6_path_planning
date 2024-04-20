@@ -15,6 +15,8 @@ from .utils import LineTrajectory
 
 import random
 
+# to-do: download occupany grid from ROS
+ 
 EPSILON = 0.00000000001
 
 
@@ -29,9 +31,9 @@ def check_collision(p1, p2, grid):
             return True
     return False
 
-def make_vertices(n = 1000, grid, start_point, end_point):
+def make_vertices(n, grid, start_point, end_point):
     vertices = [start_point, end_point]
-
+    n = 1000
     # for _ in range(n):
     #     random_point = (x,y)
     #     random_pixel = point_to_pixel(random_point)
