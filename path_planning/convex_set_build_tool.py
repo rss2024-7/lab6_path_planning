@@ -2,35 +2,6 @@ import cv2
 import sys
 import numpy as np
 
-image = cv2.imread("map.png")
-
-def draw_translucent_polygon(img, points, color, opacity=0.5):
-    """
-    Draw a polygon with translucent filling on an image.
-
-    Parameters:
-    - img: Source image.
-    - points: A d x 2 matrix of points (numpy array) representing the vertices of the polygon.
-    - color: A tuple representing the color of the polygon (B, G, R).
-    - opacity: Opacity of the polygon fill, where 0 is fully transparent and 1 is fully opaque.
-
-    Returns:
-    - An image with the translucent polygon.
-    """
-    # Create an overlay image the same size as the original
-    overlay = img.copy()
-    
-    # Reshape points to a format required by polylines and fillPoly
-    pts = points.reshape((-1, 1, 2))
-    
-    # Draw the polygon on the overlay
-    cv2.fillPoly(overlay, [pts], color)
-    
-    # Blend the overlay with the original image using the opacity
-    cv2.addWeighted(overlay, opacity, img, 1 - opacity, 0, img)
-    
-    return img
-
 convex_sets = [
     np.array([[0, 280],
               [0, 345],
@@ -216,19 +187,104 @@ convex_sets = [
               [632, 759]]),
 ]
 
-for polytope in convex_sets:
-    image = draw_translucent_polygon(image, polytope, color=tuple(int(c) for c in np.random.choice(range(256), size=3)))
+def convert_polygons_to_map_coordinates(pixel_polygons):
+    # (0,0) in pixel coordinates maps to (25.795 -17.009) in map coordinates
+    # (514, 335) in map coordinates maps to (0,0) in pixel coordinates
+
+    # Known mapping points
+    pixel_origin = np.array([0, 0])
+    map_origin = np.array([25.795, -17.009])
+    pixel_max = np.array([514, 335])
+    map_max = np.array([0, 0])
+
+    # Calculate scale factors
+    scale_x = (map_max[0] - map_origin[0]) / (pixel_max[0] - pixel_origin[0])
+    scale_y = (map_max[1] - map_origin[1]) / (pixel_max[1] - pixel_origin[1])
+
+    # Calculate the translation components
+    translate_x = map_origin[0] - scale_x * pixel_origin[0]
+    translate_y = map_origin[1] - scale_y * pixel_origin[1]
+
+    map_polygons = []
+    for poly in pixel_polygons:
+        # Apply the transformation to each point in the polygon
+        transformed = (poly * np.array([scale_x, scale_y])) + np.array([translate_x, translate_y])
+        map_polygons.append(transformed)
+
+    return map_polygons
+
+convex_sets = convert_polygons_to_map_coordinates(convex_sets)
 
 
-cv2.namedWindow('Fullscreen Window', cv2.WINDOW_NORMAL)
 
-# cv2.setWindowProperty('Fullscreen Window', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-cv2.imshow('Fullscreen Window', image)
+if __name__ == "__main__":
 
-# Loop until the specific key is pressed
-while True:
-    # Wait for the 'q' key to be pressed
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+    def pixel_to_real(pixel):
+        # need to check if this returns [u, v] or [v, u]
+        x = 25.900000
+        y = 48.50000
+        theta = 3.14
+        scale = 0.0504
+        transform = np.array([[np.cos(theta), -np.sin(theta), x],
+                    [np.sin(theta), np.cos(theta), y],
+                    [0,0,1]])
 
-cv2.destroyAllWindows()
+        pixel = np.array([pixel[0], pixel[1]]) * scale
+        pixel = np.array([*pixel,1])
+        pixel = np.linalg.inv(transform) @ pixel
+        point = pixel
+        # return point
+        return point[:2]
+    
+    x = np.array([[488, 280],
+              [529, 280],
+              [565, 345],
+              [527, 345]])
+    
+    print(np.apply_along_axis(pixel_to_real, axis=0, arr=x.T))
+
+    def draw_translucent_polygon(img, points, color, opacity=0.5):
+        """
+        Draw a polygon with translucent filling on an image.
+
+        Parameters:
+        - img: Source image.
+        - points: A d x 2 matrix of points (numpy array) representing the vertices of the polygon.
+        - color: A tuple representing the color of the polygon (B, G, R).
+        - opacity: Opacity of the polygon fill, where 0 is fully transparent and 1 is fully opaque.
+
+        Returns:
+        - An image with the translucent polygon.
+        """
+        # Create an overlay image the same size as the original
+        overlay = img.copy()
+        
+        # Reshape points to a format required by polylines and fillPoly
+        pts = points.reshape((-1, 1, 2))
+        
+        # Draw the polygon on the overlay
+        cv2.fillPoly(overlay, [pts], color)
+        
+        # Blend the overlay with the original image using the opacity
+        cv2.addWeighted(overlay, opacity, img, 1 - opacity, 0, img)
+        
+        return img
+        
+    image = cv2.imread("map.png")
+
+    for polytope in convex_sets:
+        image = draw_translucent_polygon(image, polytope, color=tuple(int(c) for c in np.random.choice(range(256), size=3)))
+
+
+    cv2.namedWindow('Fullscreen Window', cv2.WINDOW_NORMAL)
+
+    # cv2.setWindowProperty('Fullscreen Window', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    cv2.imshow('Fullscreen Window', image)
+
+    # Loop until the specific key is pressed
+    while True:
+        # Wait for the 'q' key to be pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cv2.destroyAllWindows()
