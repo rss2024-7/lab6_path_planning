@@ -12,7 +12,7 @@ class Joint:
 
 class RRT:
     def __init__(self, map_info, start, end):
-        self.max_distance = 1 # in meters
+        self.max_distance = 2 # in meters
 
         self.map_data = map_info[0] # AKA occupancy grid
         self.map_width = map_info[1] #1730
@@ -23,6 +23,11 @@ class RRT:
         self.end = np.array([end[0],end[1]]) #[x,y]
 
         # self.hall_pixels = np.where(self.map_data == 0)[0] # the places that are beige
+        self.hall_pixels = []
+        for i in range(len(self.map_data)):
+            if self.map_data[i] == 0:
+                self.hall_pixels.append(i)
+
         # self.wall_pixels = np.where(self.map_data == 100)[0]
         self.nodes = []
 
@@ -56,49 +61,50 @@ class RRT:
         coords = None
         path_len_from_start = None
         closest_node = None # aka the parent node
+        ix = None
 
         used_end_node = False
         while not valid_pixel:
+            used_end_node = False
             if np.random.rand() < end_node_sample_frequency: # use end node
                 used_end_node = True
                 pixel = self.end_pixel
             else:
-                ix = random.randint(0,len(self.map_data)-1)
-                while self.map_data[ix] != 0:
-                    ix = random.randint(0,len(self.map_data)-1)
+                # ix = random.randint(0,len(self.map_data)-1)
+                # while self.map_data[ix] != 0:
+                #     ix = random.randint(0,len(self.map_data)-1)
+                ix = np.random.choice(self.hall_pixels)
                 pixel = self.pixel_from_index(ix)
 
             coords = self.pixel_to_real(pixel)
             closest_node, dist_to_closest_node = self.find_closest_node(coords)
 
-            if not self.no_collisions_pixel(pixel, closest_node.pixel):
-                continue
+            if self.no_collisions_pixel(pixel, closest_node.pixel):
+                if used_end_node: # end node has been found
+                    if dist_to_closest_node < self.max_distance: 
+                        path_len_from_start = closest_node.path_len_from_start + dist_to_closest_node
+                        end_node = Joint(self.end, self.end_pixel, path_len_from_start)
+                        end_node.parent = closest_node
+                        self.nodes.append(end_node)
+                        return True, (self.end[0], self.end[1])
 
-            if dist_to_closest_node <= self.max_distance and used_end_node: # end node has been found
-                path_len_from_start = closest_node.path_len_from_start + dist_to_closest_node
-                end_node = Joint(self.end, self.end_pixel, path_len_from_start)
-                end_node.parent = closest_node
-                self.nodes.append(end_node)
-                return True, (coords[0], coords[1]) 
-
-            if dist_to_closest_node > self.max_distance:
-                vec = coords-closest_node.coords
-                coords = closest_node.coords + self.max_distance/dist_to_closest_node * vec
-                dist_to_closest_node = self.max_distance
-                pixel = self.real_to_pixel(coords) 
-            
-
-            valid_pixel = True
-
-        path_len_from_start = closest_node.path_len_from_start + dist_to_closest_node
-        new_node = Joint(coords, pixel, path_len_from_start)  # def __init__(self, coords, pixel, path_len_from_start, dist_to_end)
-        new_node.parent = closest_node
-        self.nodes.append(new_node)
-        return False, (coords[0], coords[1])
+                if dist_to_closest_node > self.max_distance:
+                    vec = coords-closest_node.coords
+                    coords = closest_node.coords + self.max_distance/dist_to_closest_node * vec
+                    dist_to_closest_node = self.max_distance
+                    pixel = self.real_to_pixel(coords) 
     
-    def find_closest_node(self, new_node_coords):
+                # valid_pixel = True
+
+                path_len_from_start = closest_node.path_len_from_start + dist_to_closest_node
+                new_node = Joint(coords, pixel, path_len_from_start)  # def __init__(self, coords, pixel, path_len_from_start, dist_to_end)
+                new_node.parent = closest_node
+                self.nodes.append(new_node)
+                return False, (coords[0], coords[1])
+    
+    def find_closest_node(self, new_node_coords): # in real coordinates
         closest_node = self.nodes[0]
-        min_dist = 100000
+        min_dist = 1000000
         for node in self.nodes:
             dist = np.linalg.norm(node.coords-new_node_coords)
             if dist < min_dist:
@@ -120,6 +126,7 @@ class RRT:
             pixel = pixel.astype(int)
             if self.map_data[self.index_from_pixel(pixel)] != 0:
                 return False
+            
         return True
 
     def no_collisions_dist(self, p1, p2): #also need to check if theta is a valid steering angle

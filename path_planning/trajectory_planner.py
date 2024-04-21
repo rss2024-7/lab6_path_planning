@@ -35,6 +35,7 @@ class PathPlan(Node):
             self.map_topic,
             self.map_cb,
             1)
+    
 
         self.goal_sub = self.create_subscription(
             PoseStamped,
@@ -68,6 +69,7 @@ class PathPlan(Node):
             20
         )
 
+        
 
         self.current_pose = None
         self.goal_pose = None
@@ -109,6 +111,9 @@ class PathPlan(Node):
         self.get_logger().info("map [map height][0]: " + str(self.pixel_to_real([self.map_height,0])))
         self.get_logger().info("map [map height][map width]: " + str(self.pixel_to_real([self.map_height,self.map_width])))
         self.get_logger().info("origin (25.9, 48.5) to pixel: " + str(self.real_to_pixel([25.9, 48.5])))
+
+
+
 
 
         # self.get_logger().info("orientation: ", str(self.map_orientation))
@@ -188,6 +193,30 @@ class PathPlan(Node):
 
 
     def plan_path(self, start_point, end_point, map):
+        # pixel1 = self.real_to_pixel(start_point)
+        # pixel2 = self.real_to_pixel(end_point)
+
+        # coords = [start_point]
+        # collision = False
+        # vec = pixel2-pixel1
+        # dist = np.linalg.norm(vec)
+        # num_intervals = int(dist/0.2)
+        # for interval in range(1,num_intervals):
+        #     pixel = np.round(pixel1 + interval/num_intervals * vec)
+        #     pixel = pixel.astype(int)
+        #     coord = self.pixel_to_real(pixel)
+        #     coords.append(coord)
+        #     if self.map_data[self.index_from_pixel(pixel)] != 0:
+        #         collision = True
+        #         self.get_logger().info('collision')
+        #         break
+
+        # if not collision:
+        #     self.get_logger().info('no collision')
+
+        # self.pub_points(coords)
+
+
         self.trajectory.clear()
         self.coordinates = []
 
