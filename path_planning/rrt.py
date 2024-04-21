@@ -10,7 +10,7 @@ class Joint:
         # self.dist_to_end = dist_to_end # NOT path distance
         self.parent = None
 
-class RRT_star:
+class RRT:
     def __init__(self, map_info, start, end):
         self.max_distance = 1 # in meters
 
@@ -22,12 +22,9 @@ class RRT_star:
         self.start = np.array([start[0], start[1]]) #[x,y]
         self.end = np.array([end[0],end[1]]) #[x,y]
 
-        self.hall_pixels = np.where(self.map_data == 0)[0] # the places that are beige
-        self.wall_pixels = np.where(self.map_data == 100)[0]
+        # self.hall_pixels = np.where(self.map_data == 0)[0] # the places that are beige
+        # self.wall_pixels = np.where(self.map_data == 100)[0]
         self.nodes = []
-
-        # tabulate the distance from each other
-        # self.pixel_distance_table = np.array()
 
 
         # TO-DO: make less jank
@@ -62,56 +59,42 @@ class RRT_star:
 
         used_end_node = False
         while not valid_pixel:
-            if np.random.rand() < end_node_sample_frequency:
+            if np.random.rand() < end_node_sample_frequency: # use end node
                 used_end_node = True
                 pixel = self.end_pixel
             else:
-                # hall_pixel = self.hall_pixels[random.randint(0,len(self.hall_pixels)-1)]
-                # pixel = self.pixel_from_index(np.random.choice(self.hall_pixels)) ## warning???
-                # pixel = self.pixel_from_index(hall_pixel)
                 ix = random.randint(0,len(self.map_data)-1)
                 while self.map_data[ix] != 0:
                     ix = random.randint(0,len(self.map_data)-1)
-                
                 pixel = self.pixel_from_index(ix)
 
-            if self.no_collisions(pixel):
-                coords = self.pixel_to_real(pixel)
-                closest_node, dist_to_closest_node = self.find_closest_node(coords)
-                if dist_to_closest_node <= self.max_distance and used_end_node:
-                    path_len_from_start = closest_node.path_len_from_start + dist_to_closest_node
-                    end_node = Joint(self.end, self.end_pixel, path_len_from_start)
-                    end_node.parent = closest_node
-                    self.nodes.append(end_node)
-                    return True, coords
+            coords = self.pixel_to_real(pixel)
+            closest_node, dist_to_closest_node = self.find_closest_node(coords)
 
-                if dist_to_closest_node > self.max_distance:
-                    x2, y2 = coords[0], coords[1]
-                    x1, y1 = closest_node.coords[0], closest_node.coords[1]
-                    # theta = np.arctan2((x1,y1), (x2,y2))
-                    # a=np.array([coords[0], coords[1]])
-                    # b=closest_node.coords
+            if not self.no_collisions_pixel(pixel, closest_node.pixel):
+                continue
 
-                    # a_n = np.linalg.norm(a)
-                    # b_n = np.linalg.norm(b)
-
-                    # theta = np.arccos(np.dot(a, b)/(a_n*b_n))
-                    theta = math.atan((y2-y1)/(x2-x1))
-
-                    coords = np.array([x1 + self.max_distance * math.cos(theta), y1 + self.max_distance * math.sin(theta)])
-                    # coords = np.array([x1 + 1, y1 + 1])
-                    dist_to_closest_node = self.max_distance
-                    pixel = self.real_to_pixel(coords)
-
+            if dist_to_closest_node <= self.max_distance and used_end_node: # end node has been found
                 path_len_from_start = closest_node.path_len_from_start + dist_to_closest_node
+                end_node = Joint(self.end, self.end_pixel, path_len_from_start)
+                end_node.parent = closest_node
+                self.nodes.append(end_node)
+                return True, (coords[0], coords[1]) 
 
-                valid_pixel = True
+            if dist_to_closest_node > self.max_distance:
+                vec = coords-closest_node.coords
+                coords = closest_node.coords + self.max_distance/dist_to_closest_node * vec
+                dist_to_closest_node = self.max_distance
+                pixel = self.real_to_pixel(coords) 
+            
 
+            valid_pixel = True
+
+        path_len_from_start = closest_node.path_len_from_start + dist_to_closest_node
         new_node = Joint(coords, pixel, path_len_from_start)  # def __init__(self, coords, pixel, path_len_from_start, dist_to_end)
         new_node.parent = closest_node
-
         self.nodes.append(new_node)
-        return False, coords
+        return False, (coords[0], coords[1])
     
     def find_closest_node(self, new_node_coords):
         closest_node = self.nodes[0]
@@ -124,54 +107,53 @@ class RRT_star:
 
         return closest_node, min_dist
 
+    def no_collisions_pixel(self, pixel1, pixel2): #also need to check if theta is a valid steering angle
+        if self.map_data[self.index_from_pixel(pixel2)] != 0:
+            return False
+        
+        vec = pixel2-pixel1
+        dist = np.linalg.norm(vec)
+
+        num_intervals = int(dist/0.2)
+        for interval in range(1,num_intervals):
+            pixel = np.round(pixel1 + interval/num_intervals * vec)
+            pixel = pixel.astype(int)
+            if self.map_data[self.index_from_pixel(pixel)] != 0:
+                return False
+        return True
+
+    def no_collisions_dist(self, p1, p2): #also need to check if theta is a valid steering angle
+        vec = p2-p1
+        dist = np.linalg.norm(vec)
+        num_intervals = int(dist/0.1)
+
+        for interval in range(1,num_intervals):
+            coord = p1 + interval/num_intervals * vec
+            pixel = self.real_to_pixel(coord)
+            if self.map_data[self.index_from_pixel(pixel)] != 0:
+                return False
+        return True
 
 
-    def no_collisions(self, pixel1, pixel2): #also need to check if theta is a valid steering angle
-        # TO-DO implement this
-        x1, y1 = pixel1[0], pixel1[1]
-        x2, y2 = pixel2[0], pixel2[0]
-        m = (y2 - y1) / (x2 - x1) 
-        coordinates = []
-        for x in range(x1, x2 + 1): 
-            y = round(m*x + y1)
-            real = self.pixel_to_real([x,y])
-            coordinates.append((real[0], real[1]))
-            if self.map_data[self.index_from_pixel([x,y])] != 0:
-                return False, coordinates
-        return True, coordinates
 
-    def no_collisions(self, pixel1, pixel2): #also need to check if theta is a valid steering angle
-        # TO-DO implement this
-        x1, y1 = pixel1[0], pixel1[1]
-        x2, y2 = pixel2[0], pixel2[0]
-        m = (y2 - y1) / (x2 - x1) 
-        coordinates = []
-        for x in range(x1, x2 + 1, 0.5): 
-            y = round(m*x + y1)
-            real = self.pixel_to_real([x,y])
-            coordinates.append((real[0], real[1]))
-            if self.map_data[self.index_from_pixel([x,y])] != 0:
-                return False, coordinates
-        return True, coordinates
+    # def make_tree(self):
+    #     # found_end = False
+    #     # start_node = Joint(self.start, self.start_pixel, 0) # coords, pixel, path_len_from_start, dist_to_end
+    #     # self.nodes.append(start_node)
+    #     # while not found_end:
+    #     #     found_end, coords = self.sample_node()
 
+    #     # end_node = self.nodes[-1]
+    #     # real_coords = [self.end]
 
-    def make_tree(self):
-        found_end = False
-        start_node = Joint(self.start, self.start_pixel, 0) # coords, pixel, path_len_from_start, dist_to_end
-        self.nodes.append(start_node)
-        while not found_end:
-            found_end, coords = self.sample_node()
-
-        end_node = self.nodes[-1]
-        real_coords = [self.end]
-
-        parent = end_node.parent
-        while parent:
-            real_coords.append((parent.coords[0], parent.coords[1]))
-            parent = parent.parent
+    #     # parent = end_node.parent
+    #     # while parent:
+    #     #     real_coords.append((parent.coords[0], parent.coords[1]))
+    #     #     parent = parent.parent
         
 
-        return real_coords[::-1]
+    #     # return real_coords[::-1]
+    #     return True
         
 
 
