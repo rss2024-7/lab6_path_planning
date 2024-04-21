@@ -13,10 +13,10 @@ To test only path planner:
     ros2 launch path_planning sim_plan.launch.xml
 
 To test path planner + path follower:
-    ros2 launch path_planning sim_plan_follow.launch.xml.
+    ros2 launch path_planning sim_plan_follow.launch.xml
 
 To test path planner + path follower with particle filter localization:
-    ros2 launch path_planning pf_sim_plan_follow.launch.xml.
+    ros2 launch path_planning pf_sim_plan_follow.launch.xml
 
 
 Visualize in RViz:
@@ -106,6 +106,8 @@ class PathPlan(Node):
         )
 
         self.polygon_marker_pub = self.create_publisher(MarkerArray, 'polygons', 1)
+        self.start_pub = self.create_publisher(Marker, "viz/start_point", 1)
+        self.end_pub = self.create_publisher(Marker, "viz/end_pose", 1)
 
         self.current_pose = None
         self.goal_pose = None
@@ -179,6 +181,30 @@ class PathPlan(Node):
         self.plan_path(self.current_pose, self.goal_pose, self.map)
 
 
+    def publish_point(self, point, publisher, r, g, b):
+        self.get_logger().info("Before Publishing point")
+        if self.start_pub.get_subscription_count() > 0:
+            self.get_logger().info("Publishing point")
+            marker = Marker()
+            marker.header.frame_id = "map"
+            marker.id = 0
+            marker.type = 2  # sphere
+            marker.action = 0
+            marker.pose.position.x = point[0]
+            marker.pose.position.y = point[1]
+            marker.pose.orientation.w = 1.0
+            marker.scale.x = 1.0
+            marker.scale.y = 1.0
+            marker.scale.z = 1.0
+            marker.color.r = r
+            marker.color.g = g
+            marker.color.b = b
+            marker.color.a = 1.0
+            publisher.publish(marker)
+        elif publisher.get_subscription_count() == 0:
+            self.get_logger().info("Not publishing point, no subscribers")
+
+
     def visualize_connectivity(self, regions):
         """
         Create and display SVG graph of region connectivity
@@ -243,6 +269,10 @@ class PathPlan(Node):
 
         start_pos = start_point[:2]
         goal_pos = end_point[:2]
+
+        # Visualize start and goal markers
+        self.publish_point(start_pos, self.start_pub, 1.0, 1.0, 1.0)
+        self.publish_point(goal_pos, self.end_pub, 0.0, 1.0, 0.0)
         
         # Convert convex_sets list to dictionary of Vpolytope objects, with numbers as keys
         gcs_regions = {}
@@ -267,7 +297,8 @@ class PathPlan(Node):
         
         gcs.AddPathLengthCost()
         gcs.AddTimeCost()
-        gcs.AddVelocityBounds(np.array([-1.0, -1.0]), np.array([1.0, 1.0]))
+        gcs.AddVelocityBounds(np.array([-1.5, -1.5]), np.array([1.5, 1.5]))
+        gcs.AddPathContinuityConstraints(2)  # degree of continuity
 
         options = GraphOfConvexSetsOptions()
         options.preprocessing = True

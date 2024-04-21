@@ -188,13 +188,13 @@ pixel_convex_sets = [
 ]
 
 def convert_polygons_to_map_coordinates(pixel_polygons):
-    # (0,0) in pixel coordinates maps to (25.795 -17.009) in map coordinates
-    # (514, 335) in map coordinates maps to (0,0) in pixel coordinates
+    # (0,0) in pixel coordinates maps to (25.795 -17.039) in map coordinates
+    # (512, 337) in map coordinates maps to (0,0) in pixel coordinates
 
     # Known mapping points
     pixel_origin = np.array([0, 0])
-    map_origin = np.array([25.795, -17.009])
-    pixel_max = np.array([514, 335])
+    map_origin = np.array([25.795, -17.039])
+    pixel_max = np.array([512, 337])
     map_max = np.array([0, 0])
 
     # Calculate scale factors

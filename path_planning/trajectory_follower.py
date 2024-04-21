@@ -22,16 +22,16 @@ class PurePursuit(Node):
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
         self.drive_topic = self.get_parameter('drive_topic').get_parameter_value().string_value
 
-        self.lookahead = 1  # FILL IN #
+        self.lookahead = 0.5  # FILL IN #
         self.speed = 4.0  # FILL IN #
         self.wheelbase_length = 0.3  # FILL IN #
 
         # Adjust lookahead based on angle to lookahead point
         # higher angle error ~ lower lookahead distance
-        self.min_lookahead = 1.0 
-        self.max_lookahead = 2.0 
+        self.min_lookahead = 0.25
+        self.max_lookahead = 0.75
 
-        self.speed_to_lookahead = 1.125
+        self.speed_to_lookahead = 4.0 / self.lookahead
         
         # the angle to target s.t. the lookahead will be at its minimum
         self.min_lookahead_angle = np.deg2rad(90) 
@@ -134,6 +134,8 @@ class PurePursuit(Node):
 
         steer_angle = np.arctan2((self.wheelbase_length*np.sin(angle_error)), 
                                  0.5*self.lookahead + self.wheelbase_length*np.cos(angle_error))
+        
+        steer_angle *= 2
         
         steer_angle = np.clip(steer_angle, -self.max_steer, self.max_steer)
         drive_msg.drive.steering_angle = steer_angle
