@@ -31,6 +31,7 @@ class LineTrajectory:
             self.traj_pub = self.node.create_publisher(Marker, viz_namespace + "/path", 1)
             self.end_pub = self.node.create_publisher(Marker, viz_namespace + "/end_pose", 1)
 
+
     # compute the distances along the path for all path segments beyond those already computed
     def update_distances(self):
         num_distances = len(self.distances)
@@ -217,6 +218,7 @@ class LineTrajectory:
                 marker.action = marker.DELETE
             self.traj_pub.publish(marker)
             print('publishing traj')
+            self.node.get_logger().info("Publishing trajectory done")
         elif self.traj_pub.get_subscription_count() == 0:
             print("Not publishing trajectory, no subscribers")
 
