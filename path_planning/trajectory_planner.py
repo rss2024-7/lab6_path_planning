@@ -8,11 +8,15 @@ RUN python3 -m pip install opencv-python
 
 To test:
 ros2 launch racecar_simulator simulate.launch.xml
-ros2 launch path_planning sim_plan.launch.xml
 
-or
+To test only path planner:
+    ros2 launch path_planning sim_plan.launch.xml
 
-ros2 launch path_planning build_trajectory.launch.xml
+To test path planner + path follower:
+    ros2 launch path_planning sim_plan_follow.launch.xml.
+
+To test path planner + path follower with particle filter localization:
+    ros2 launch path_planning pf_sim_plan_follow.launch.xml.
 
 
 Visualize in RViz:
@@ -59,7 +63,7 @@ class PathPlan(Node):
 
     def __init__(self):
         super().__init__("trajectory_planner")
-        self.declare_parameter('odom_topic', "/odom")
+        self.declare_parameter('odom_topic', "default")
         self.declare_parameter('map_topic', "default")
         self.declare_parameter('initial_pose_topic', "default")
 
