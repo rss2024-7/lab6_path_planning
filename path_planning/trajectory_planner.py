@@ -11,8 +11,12 @@ from .rrt import Joint
 
 from std_msgs.msg import ColorRGBA
 
+import time
+
 import numpy as np
 import cv2
+import sys
+import os
 
 
 class PathPlan(Node):
@@ -69,7 +73,23 @@ class PathPlan(Node):
             20
         )
 
+        # parent_directory = os.path.abspath('..')
+        # sys.path.append(parent_directory)
+        # script_dir = sys.path[0]
+        # img_path = os.path.join(script_dir, '../maps/stata_basement_dilated_invert.png')
+
+        # padded_map = cv2.imread('stata_basement.png', cv2.IMREAD_GRAYSCALE)
+        # self.padded_map_grid = np.asanyarray(padded_map, order='C')
+
         
+        save_prefix = os.path.join(os.environ["HOME"], "lab6_trajectories")
+
+        if not os.path.exists(save_prefix):
+            self.get_logger().info("Creating the trajectory logging directory: {}".format(save_prefix))
+            os.makedirs(save_prefix)
+
+        self.save_path = os.path.join(save_prefix,
+                                      time.strftime("%Y-%m-%d-%H-%M-%S") + ".traj")
 
         self.current_pose = None
         self.goal_pose = None
@@ -89,6 +109,7 @@ class PathPlan(Node):
 
         self.nodes_coords = []
 
+
         self.get_logger().info("------READY-----")
 
     def map_cb(self, msg):
@@ -99,6 +120,8 @@ class PathPlan(Node):
         self.map_height = msg.info.height
         self.map_resolution = msg.info.resolution  # resolution in meters/cell
         self.map_data = msg.data
+
+        # self.map_data = self.padded_map_grid
         self.map_orientation = msg.info.origin.orientation
         self.map_position = msg.info.origin.position
         self.map_info = (self.map_data, self.map_width, self.map_height, self.map_resolution)
@@ -170,6 +193,7 @@ class PathPlan(Node):
         color.a = 1.0
 
         marker_array = MarkerArray()
+        
         marker_id = 0
 
         for point in points:
@@ -218,7 +242,8 @@ class PathPlan(Node):
 
 
         self.trajectory.clear()
-        self.coordinates = []
+        self.nodes_coords = []
+        self.pub_points(self.nodes_coords)
 
         RRT_planner = RRT(self.map_info, start_point, end_point)
 
@@ -244,7 +269,7 @@ class PathPlan(Node):
         
         path = real_coords[::-1] # reverse the order
         self.trajectory.points = path
-
+        self.trajectory.save(self.save_path)
         self.traj_pub.publish(self.trajectory.toPoseArray())
         self.trajectory.publish_viz()
 
