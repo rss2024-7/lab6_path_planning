@@ -1,6 +1,9 @@
 <launch>
     <node pkg="path_planning" exec="trajectory_loader" name="trajectory_loader">
-        <!--        <param name="trajectory" value="$HOME/lab6_trajectories/example.traj"/>-->
-        <param name="trajectory" value="$(find-pkg-share path_planning)/example_trajectories/trajectory_2.traj"/>
+        <!-- <param name="trajectory" value="$HOME/lab6_trajectories/path1/path1_trial2.traj"/> -->
+        <!-- <param name="trajectory" value="$HOME/lab6_trajectories/path2/path2_trial1.traj"/> -->
+        <!-- <param name="trajectory" value="$HOME/lab6_trajectories/path2/path2_trial2.traj"/> -->
+        <param name="trajectory" value="$HOME/lab6_trajectories/path3/path3_trial1.traj"/> 
+        <!-- <param name="trajectory" value="$(find-pkg-share path_planning)/example_trajectories/trajectory_2.traj"/> -->
     </node>
 </launch>
