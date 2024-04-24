@@ -1,158 +1,244 @@
 import numpy as np
+import random
+import math
 
-# def euclid_dist(start_pt, end_pt):
-#     ## Args: start_pt, end_pt as 2-elem lists [x-coord, y-coord]
-#     diff = np.array(end_pt) - np.array(start_pt)
-#     return np.sqrt(diff[0]**2 + diff[1]**2)
-
-class Node:
-    def __init__(self, state):
-        self.state = state
+class Joint:
+    def __init__(self, coords, pixel, path_len_from_start):
+        self.coords = coords # (x,y) in real coordinates NOT pixel
+        self.pixel = pixel
+        self.path_len_from_start = path_len_from_start # path length from starting point
+        # self.dist_to_end = dist_to_end # NOT path distance
         self.parent = None
 
-class RRT:
-    def __init__(self, start, goal, step_size, max_iter, threshold, max_steer, obs, map_dims):
-        self.start = Node(start)
-        self.goal = goal
-        self.step_size = step_size
-        self.max_steer = max_steer
-        self.max_iter = max_iter
-        self.threshold = threshold
-        self.counter = 0
-        self.tree = [self.start]
-        self.obstacles = obs
-        self.map_dims = map_dims
+class RRT_star:
+    def __init__(self, map_info, start, end):
+        self.max_distance = 2 # in meters
+
+        self.map_data = map_info[0] # AKA occupancy grid
+        self.map_width = map_info[1] #1730
+        self.map_height = map_info[2] #1300
+        self.map_resolution = map_info[3]
+
+        self.start = np.array([start[0], start[1]]) #[x,y]
+        self.end = np.array([end[0],end[1]]) #[x,y]
+
+        # self.hall_pixels = np.where(self.map_data == 0)[0] # the places that are beige
+        # self.wall_pixels = np.where(self.map_data == 100)[0]
+        self.hall_pixels = []
+        for i in range(len(self.map_data)):
+            if self.map_data[i] == 0:
+                self.hall_pixels.append(i)
+        self.nodes = []
+
+        # tabulate the distance from each other
+        # self.pixel_distance_table = np.array()
+
+
+        # TO-DO: make less jank
+        x = 25.900000
+        y = 48.50000
+        theta = 3.14
+        resolution = 0.0504
+        self.transform = np.array([[np.cos(theta), -np.sin(theta), x],
+                    [np.sin(theta), np.cos(theta), y],
+                    [0,0,1]])
+
+        self.x_bounds = (-61.3, 25.9)
+        self.y_bounds = (-16.2, 48.5)
+
         
-    # def goal_reached(new_node):
-    #     # Implement Broad + Narrow phase check
-    #     raise NotImplementedError
+        self.start_pixel = self.real_to_pixel(self.start)
+        self.end_pixel = self.real_to_pixel(self.end)
+        self.end_index = self.index_from_pixel(self.end_pixel)
+
+
+
+
+    def sample_node(self):
+        # returns true if start node has been connected with end node, false otherwise
+        end_node_sample_frequency = 0.25
+
+        valid_pixel = False
+        pixel = None
+        coords = None
+        path_len_from_start = None
+        closest_node = None # aka the parent node
+        ix = None
+
+        used_end_node = False
+        while not valid_pixel:
+            used_end_node = False
+            if np.random.rand() < end_node_sample_frequency:
+                used_end_node = True
+                pixel = self.end_pixel
+            else:
+                ix = np.random.choice(self.hall_pixels)
+                pixel = self.pixel_from_index(ix)
+
+            coords = self.pixel_to_real(pixel)
+            # if used_end_node:
+            #     coords = self.pixel_to_real(self.end_pixel)
+            closest_node, dist_to_closest_node = self.find_closest_node(coords)
+
+            if self.no_collisions(pixel, closest_node.pixel):
+                # coords = self.pixel_to_real(pixel)
+                if used_end_node: 
+                    if dist_to_closest_node < self.max_distance:
+                        path_len_from_start = closest_node.path_len_from_start + dist_to_closest_node
+                        end_node = Joint(self.end, self.end_pixel, path_len_from_start)
+                        end_node.parent = closest_node
+                        self.nodes.append(end_node)
+                        return True, coords, end_node.path_len_from_start
+                
+                if dist_to_closest_node > self.max_distance:
+                    direction = (coords-closest_node.coords)/dist_to_closest_node
+                    coords = closest_node.coords + self.max_distance*direction
+                    dist_to_closest_node = self.max_distance
+                    pixel = self.real_to_pixel(coords)
+                
+                nearest_nodes = self.find_closest_nodes(coords, radius = self.max_distance + 5)
+                
+                # default parent is closest node we find
+                parent = closest_node
+                parent_cost = dist_to_closest_node + closest_node.path_len_from_start #default dist
+                min_cost = parent_cost
+
+                # find minimum cost path
+                for node in nearest_nodes:
+                    node_cost =  node.path_len_from_start 
+                    dist = np.linalg.norm(coords - node.coords)
+                    cost = node_cost + dist
+                    if cost < min_cost and self.no_collisions(node.pixel, pixel):
+                        min_cost = cost
+                        parent = node
+                        # parent_cost = cost
+                new_node = Joint(coords, pixel, min_cost)
+                new_node.parent = parent
+                self.nodes.append(new_node)
+
+                # rewire tree
+                for node in nearest_nodes:
+                    dist = np.linalg.norm(coords - node.coords)
+                    # cost_new = new_node.cost
+                    total_cost = new_node.path_len_from_start + dist
+                    if self.no_collisions(node.pixel, pixel) and total_cost < node.path_len_from_start:
+                        node.parent = new_node
+                
+                return False, coords, 0 # zero is a placeholder used for debugging
+
+                   
     
-    def rrt_search(self):
-        for _ in range(self.max_iter):
-            rand_point = self.random_point()
-            self.counter += 1
-            nearest_node = self.find_nearest_node(rand_point)
-            # Collision check in steer function
-            new_node = self.steer(nearest_node, rand_point)
-            if new_node:
-                self.tree.append(new_node)
-                # Check if goal is reached
-                if np.linalg.norm(new_node.state - self.goal) < self.threshold:
-                # if self.goal_reached(new_node.state):
-                    return self.construct_path(new_node)
-        return None
+    def find_closest_node(self, new_node_coords):
+        closest_node = self.nodes[0]
+        min_dist = np.inf
+        for node in self.nodes:
+            dist = np.linalg.norm(node.coords-new_node_coords)
+            if dist < min_dist:
+                min_dist = dist
+                closest_node = node
 
-    def find_nearest_node(self, point):
-        nearest_node = None
-        min_distance = float('inf')
-        # use np array + broadcasting here instead
-        for node in self.tree:
-            distance_to_point = np.linalg.norm(node.state - point)
-            if distance_to_point < min_distance:
-                nearest_node = node
-                min_distance = distance_to_point
-        return nearest_node
-    
-    def angle_diff(self, curr_direction, prev_direction): 
-        # Find angle between current direction vector and prev direction vector
-        
-        # # prev_mag = np.linalg.norm(from_node.state - from_node.parent.state)
-        # prev_direction = (-from_node.state + from_node.parent.state)/np.linalg.norm(-from_node.state + from_node.parent.state)
+        return closest_node, min_dist
 
-        # # curr_mag =  np.linalg.norm(to_point - from_node.state)
-        # curr_direction = (to_point - from_node.state)/np.linalg.norm(to_point - from_node.state)
+    def find_closest_nodes(self, new_node_coords, radius = 1):
+        nearest_nodes = []
+        for node in self.nodes:
+            distance_to_point = np.linalg.norm(node.coords - new_node_coords)
+            if distance_to_point <= radius:
+                nearest_nodes.append(node)
+        return nearest_nodes
 
-        # Use dot product to find angle_diff, mag of both vectors should be 1
-        theta = np.arccos(np.dot(curr_direction, prev_direction))
-    
-        return theta
-    
-    def steer(self, from_node, to_point):
-        # Get direction
-        direction = (to_point - from_node.state)/np.linalg.norm(to_point - from_node.state)
-        # prev direction
-        prev_direction = (-from_node.state + from_node.parent.state)/np.linalg.norm(-from_node.state + from_node.parent.state)
-        # Compute new state/point
-        new_state = from_node.state + self.step_size * direction
-        # constrain to max_steering angle 
-        if abs(self.angle_diff(direction, prev_direction)) > self.max_steer:
-                # Need to correct new_direction calculation, use rotation matrix
-                rotate = np.array([np.cos(self.max_steer), -np.sin(self.max_steer)], \
-                                 [np.sin(self.max_steer), np.cos(self.max_steer)] )
-                new_direction = rotate@np.transpose(prev_direction)
-                new_state = from_node.state + self.step_size * new_direction
-        if self.collision_free(from_node.state, new_state):
-            new_node = Node(new_state)
-            new_node.parent = from_node
-            return new_node
-        else:
-            return None
-
-    def construct_path(self, end_node):
-        path = []
-        current_node = end_node
-        while current_node is not None:
-            path.append(current_node.state)
-            current_node = current_node.parent
-        return path[::-1]
-
-    def collision_free(self, point1, point2):
-        # Check if the line segment between point1 and point2 is free of obstacles
-        # Assume modified map info accounts for car dimensions, so may 
-        # not need Broad+Narrow phase check
-        
-
-        # Need to finish implementing this
-
-        # create vector array of cells touched by line
-        diff = point2 - point1
-        slope = intercept = 0
-        if diff[0] != 0:
-            slope = diff[1]/diff[0]
-            intercept = point1[1] - slope*point1[0]
-            x_arr = np.linspace(point1[0], point2[0], num=abs(diff[0])+1)
-            y_arr = slope*x_arr + intercept
-        else: 
-            if diff[1] == 0:
-                slope = np.inf
-                x_arr = np.full((1, abs(diff[0])+1), point1[0] ) 
-                y_arr = np.linspace(point1[1], point2[1], num=abs(diff[1])+1)
-
-
-        # check cells' occupancy probability
-        inds = np.vstack(x_arr, y_arr)
-        inds = np.transpose(inds)
-        line_inds = set(map(tuple, inds)) # array of tuples (x,y)
-
-
-        # set intersect indices and obstacle indices
-        collisions = line_inds.intersection(self.obstacles)
-
-        if collisions:
+    def no_collisions(self, pixel1, pixel2): #also need to check if theta is a valid steering angle
+        # TO-DO implement this
+        if self.map_data[self.index_from_pixel(pixel2)] != 0:
             return False
+         
+        vec = pixel2-pixel1
+        dist = np.linalg.norm(vec)
+
+        num_intervals = int(dist/0.2)
+        for interval in range(1,num_intervals):
+            pixel = np.round(pixel1 + interval/num_intervals * vec)
+            pixel = pixel.astype(int)
+            if self.map_data[self.index_from_pixel(pixel)] != 0:
+                return False
+        
         return True
+    
+    def make_tree(self):
+        found_end = False
+        start_node = Joint(self.start, self.start_pixel, 0) # coords, pixel, path_len_from_start, dist_to_end
+        self.nodes.append(start_node)
+        while not found_end:
+            found_end, coords = self.sample_node()
 
-    def random_point(self):
-        # Generate a random point within the search space
-        # Bias sampling towards goal: every _ samples, use goal as sample point
-        if self.counter != 0 and self.counter % 100 == 0:
-            return self.goal
-        return np.random.uniform(0, 10, size=(2,)) # change 0, 10 to map width, height constraints
+        end_node = self.nodes[-1]
+        real_coords = [self.end]
 
-    def normalize(self, vector):
-        magnitude = np.linalg.norm(vector)
-        if magnitude == 0:
-            return vector
+        parent = end_node.parent
+        while parent:
+            real_coords.append((parent.coords[0], parent.coords[1]))
+            parent = parent.parent
+        
+
+        return real_coords[::-1]
+        
+
+
+    # utils 
+    def pixel_to_real(self, pix, column_row=False):
+        # if column_row = True, pixel format is [v (column index), u (row index)] 
+        if column_row:
+            pixel = np.array([pix[0], pix[1]]) 
         else:
-            return vector / magnitude
+            pixel = np.array([pix[1], pix[0]]) 
 
-# Example:
-start = np.array([0, 0])
-goal = np.array([10, 10])
-step_size = 0.5
-max_iter = 1000
-threshold = 0.1
+        pixel = pixel * self.map_resolution
+        pixel = np.array([*pixel,1.0])
+        pixel = np.linalg.inv(self.transform) @ pixel
+        point = pixel
 
-rrt = RRT(start, goal, step_size, max_iter, threshold)
-final_path = rrt.rrt_search()
-print(final_path)
+        # returns real x,y 
+        return np.array([point[0], point[1]])
+    # def pixel_to_real(self, pixel, column_row=False):
+    #     # if column_row = True, pixel format is [v (column index), u (row index)] 
+    #     if column_row:
+    #         pixel = np.array([pixel[0], pixel[1]]) 
+    #     else:
+    #         pixel = np.array([pixel[1], pixel[0]]) 
+
+    #     pixel = pixel * self.map_resolution
+    #     pixel = np.array([*pixel,1])
+    #     pixel = np.linalg.inv(self.transform) @ pixel
+    #     point = pixel
+
+    #     # returns real x,y 
+    #     return point
+
+    def real_to_pixel(self, pt, column_row=False):
+        #takes in [x,y] real coordinate
+        point = np.array([pt[0], pt[1], 1.0])
+        point = self.transform @ point
+        point = point / self.map_resolution
+        pixel = np.floor(point)
+
+        if column_row: # returns [v (column index), u (row index)] 
+            return np.array([pixel[0], pixel[1]])
+        else:
+            # returns [u (row index), v (column index)]
+            return np.array([pixel[1], pixel[0]])
+    
+    def index_from_pixel(self, pixel, column_row=False):
+        # calculate the index of the row-major map
+        if column_row: # pixel = [v, u]
+            return int(pixel[1] * self.map_width + pixel[0])
+        else: # pixel = [u, v]
+            return int(pixel[0] * self.map_width + pixel[1])
+    
+    def pixel_from_index(self, index, column_row=False):
+        # calculate the index of the row-major map
+        u = int(index/self.map_width)
+        v = index - u * self.map_width
+        if column_row: # pixel = [v, u]
+            return np.array([v,u])
+        else: # pixel = [u, v]
+            return np.array([u,v])
