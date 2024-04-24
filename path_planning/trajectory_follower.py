@@ -1,9 +1,10 @@
 import rclpy
 from ackermann_msgs.msg import AckermannDriveStamped
-from geometry_msgs.msg import PoseArray, PointStamped
+from geometry_msgs.msg import PoseArray, PointStamped, PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from visualization_msgs.msg import Marker
+from std_msgs.msg import Float32
 from wall_follower.visualization_tools import VisualizationTools
 import numpy as np
 
@@ -31,7 +32,7 @@ class PurePursuit(Node):
         self.min_lookahead = 1.0 
         self.max_lookahead = 2.0 
 
-        self.speed_to_lookahead = 1.125
+        self.speed_to_lookahead = 2.0
         
         # the angle to target s.t. the lookahead will be at its minimum
         self.min_lookahead_angle = np.deg2rad(90) 
@@ -55,11 +56,21 @@ class PurePursuit(Node):
                                                  "/clicked_point",
                                                  self.point_callback,
                                                  1)
+        self.init_point_sub = self.create_subscription(PoseWithCovarianceStamped,
+                                            "/initialpose",
+                                            self.init_callback,
+                                            1)
         
         self.target_pub = self.create_publisher(Marker, "/target_point", 1)
         self.radius_pub = self.create_publisher(Marker, "/radius", 1)
 
         self.max_steer = 0.34
+
+        self.error_pub = self.create_publisher(Float32, "/error", 1)
+        self.num_dist = 0
+        self.tot_dist = 0
+
+        self.initialized_traj = False
 
     def point_callback(self, point_msg):
         self.get_logger().info("adding point")
@@ -70,7 +81,11 @@ class PurePursuit(Node):
     def pose_callback(self, odometry_msg):
 
         # no trajectory to follow
-        if not self.trajectory.points: return
+        if not self.initialized_traj: 
+            drive_msg = AckermannDriveStamped()
+            drive_msg.drive.speed = 0.0
+            self.drive_pub.publish(drive_msg)
+            return
 
         # retrieve odometry data
         car_pos_x = odometry_msg.pose.pose.position.x
@@ -93,6 +108,10 @@ class PurePursuit(Node):
             drive_msg = AckermannDriveStamped()
             drive_msg.drive.speed = 0.0
             self.drive_pub.publish(drive_msg)
+            
+            avg_dist = self.tot_dist / self.num_dist
+            self.get_logger().info("Average error: %s" % avg_dist)
+            # self.initialized_traj = False
             return
 
 
@@ -163,6 +182,14 @@ class PurePursuit(Node):
 
         projections = v + t[:, np.newaxis] * (w - v)
         min_distances = np.linalg.norm(p - projections, axis=1)
+
+        min_dist = np.min(min_distances)
+        error_msg = Float32()
+        error_msg.data = min_dist
+        self.error_pub.publish(error_msg)
+
+        self.num_dist += 1
+        self.tot_dist += min_dist
 
         # if too close to end point of segment, take it out of consideration for closest line segment
         end_point_distances = np.linalg.norm(w-p, axis=1)
@@ -258,7 +285,14 @@ class PurePursuit(Node):
         self.trajectory.fromPoseArray(msg)
         self.trajectory.publish_viz(duration=0.0)
 
+        self.trajectory.save("current_trajectory.traj")
+
         self.initialized_traj = True
+
+    def init_callback(self, msg):
+        self.num_dist = 0
+        self.tot_dist = 0
+        self.initialized_traj = False
 
 
 def main(args=None):

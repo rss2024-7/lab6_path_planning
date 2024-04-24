@@ -1,10 +1,59 @@
+"""
+Add the following to dockerfile:
+
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install drake
+RUN python3 -m pip install opencv-python
+
+
+To test:
+ros2 launch racecar_simulator simulate.launch.xml
+
+To test only path planner:
+    ros2 launch path_planning sim_plan.launch.xml
+
+To test path planner + path follower:
+    ros2 launch path_planning sim_plan_follow.launch.xml
+
+To test path planner + path follower with particle filter localization:
+    ros2 launch path_planning pf_sim_plan_follow.launch.xml
+
+
+Visualize in RViz:
+ - /polygons                (displays vertices of convex sets)
+ - /trajectory/current      (displays solved trajectory)
+"""
+
+
 import rclpy
 from rclpy.node import Node
 
 assert rclpy
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray, Pose
 from nav_msgs.msg import OccupancyGrid
+from visualization_msgs.msg import Marker, MarkerArray
+from geometry_msgs.msg import Point32
+from geometry_msgs.msg import Point as ROSPoint
+from std_msgs.msg import ColorRGBA
+from builtin_interfaces.msg import Duration
 from .utils import LineTrajectory
+
+import time
+import numpy as np
+import pydot
+
+from pydrake.all import (
+    GraphOfConvexSetsOptions,
+    GcsTrajectoryOptimization,
+    Point,
+    VPolytope,
+    Solve,
+    CompositeTrajectory,
+    PiecewisePolynomial,
+)
+
+from.convex_set_build_tool import convex_sets
 
 
 class PathPlan(Node):
@@ -47,21 +96,237 @@ class PathPlan(Node):
             self.pose_cb,
             10
         )
+        
+        # FOR SIMULATION TESTING
+        self.odom_sub = self.create_subscription(
+            Odometry, 
+            self.odom_topic,
+            self.odom_cb,
+            1
+        )
 
+        self.polygon_marker_pub = self.create_publisher(MarkerArray, 'polygons', 1)
+        self.start_pub = self.create_publisher(Marker, "viz/start_point", 1)
+        self.end_pub = self.create_publisher(Marker, "viz/end_pose", 1)
+
+        self.current_pose = None
+        self.goal_pose = None
+        self.map = None
         self.trajectory = LineTrajectory(node=self, viz_namespace="/planned_trajectory")
 
-    def map_cb(self, msg):
-        raise NotImplementedError
+        self.display_convex_sets()
 
-    def pose_cb(self, pose):
-        raise NotImplementedError
+        self.get_logger().info(f"{convex_sets}")
+        self.get_logger().info("=============================READY=============================")
+
+
+    def map_cb(self, msg):
+        timestamp = msg.header.stamp
+        frame_id = msg.header.frame_id
+        map_width = msg.info.width
+        map_height = msg.info.height
+        map_resolution = msg.info.resolution  # resolution in meters/cell
+        map_data = msg.data
+
+
+    def odom_cb(self, msg):
+        timestamp = msg.header.stamp
+        frame_id = msg.header.frame_id
+        position_x = msg.pose.pose.position.x
+        position_y = msg.pose.pose.position.y
+        position_z = msg.pose.pose.position.z
+        orientation_x = msg.pose.pose.orientation.x
+        orientation_y = msg.pose.pose.orientation.y
+        orientation_z = msg.pose.pose.orientation.z
+        orientation_w = msg.pose.pose.orientation.w
+        theta = 2 * np.arctan2(orientation_z, orientation_w)
+        self.current_pose = np.array([position_x, position_y, theta])
+
+        # print(f"odom current_pose: {self.current_pose}")
+
+
+    def pose_cb(self, msg):
+        timestamp = msg.header.stamp
+        frame_id = msg.header.frame_id
+        position_x = msg.pose.pose.position.x
+        position_y = msg.pose.pose.position.y
+        position_z = msg.pose.pose.position.z
+        orientation_x = msg.pose.pose.orientation.x
+        orientation_y = msg.pose.pose.orientation.y
+        orientation_z = msg.pose.pose.orientation.z
+        orientation_w = msg.pose.pose.orientation.w
+        theta = 2 * np.arctan2(orientation_z, orientation_w)
+        self.current_pose = np.array([position_x, position_y, theta])
+
+        print(f"current_pose: {self.current_pose}")
+
 
     def goal_cb(self, msg):
-        raise NotImplementedError
+        timestamp = msg.header.stamp
+        frame_id = msg.header.frame_id
+        position_x = msg.pose.position.x
+        position_y = msg.pose.position.y
+        position_z = msg.pose.position.z
+        orientation_x = msg.pose.orientation.x
+        orientation_y = msg.pose.orientation.y
+        orientation_z = msg.pose.orientation.z
+        orientation_w = msg.pose.orientation.w
+        theta = 2 * np.arctan2(orientation_z, orientation_w)
+        self.goal_pose = np.array([position_x, position_y, theta])
+
+        print(f"goal_pose set: {self.goal_pose}")
+
+        assert self.current_pose is not None
+
+        self.plan_path(self.current_pose, self.goal_pose, self.map)
+
+
+    def publish_point(self, point, publisher, r, g, b):
+        self.get_logger().info("Before Publishing point")
+        if self.start_pub.get_subscription_count() > 0:
+            self.get_logger().info("Publishing point")
+            marker = Marker()
+            marker.header.frame_id = "map"
+            marker.id = 0
+            marker.type = 2  # sphere
+            marker.action = 0
+            marker.pose.position.x = point[0]
+            marker.pose.position.y = point[1]
+            marker.pose.orientation.w = 1.0
+            marker.scale.x = 1.0
+            marker.scale.y = 1.0
+            marker.scale.z = 1.0
+            marker.color.r = r
+            marker.color.g = g
+            marker.color.b = b
+            marker.color.a = 1.0
+            publisher.publish(marker)
+        elif publisher.get_subscription_count() == 0:
+            self.get_logger().info("Not publishing point, no subscribers")
+
+
+    def visualize_connectivity(self, regions):
+        """
+        Create and display SVG graph of region connectivity
+        """
+        numEdges = 0
+
+        graph = pydot.Dot("GCS region connectivity")
+        keys = list(regions.keys())
+        for k in keys:
+            graph.add_node(pydot.Node(k))
+        for i in range(len(keys)):
+            v1 = regions[keys[i]]
+            for j in range(i + 1, len(keys)):
+                v2 = regions[keys[j]]
+                if v1.IntersectsWith(v2):
+                    numEdges += 1
+                    graph.add_edge(pydot.Edge(keys[i], keys[j], dir="both"))
+
+        svg = graph.create_svg()
+
+        with open('gcs_regions_connectivity.svg', 'wb') as svg_file:
+            svg_file.write(svg)
+
+        return numEdges
+    
+
+    def display_convex_sets(self):
+        marker_array = MarkerArray()
+        marker_id = 0
+
+        for poly_index, polygon in enumerate(convex_sets):
+            color = ColorRGBA()
+            color.r = np.random.random()
+            color.g = np.random.random()
+            color.b = np.random.random()
+            color.a = 1.0
+
+            for point in polygon:
+                marker = Marker()
+                marker.header.frame_id = "map"
+                marker.type = marker.SPHERE
+                marker.action = marker.ADD
+                marker.scale.x = 0.25
+                marker.scale.y = 0.25
+                marker.scale.z = 0.25
+                marker.color = color
+                marker.pose.orientation.w = 1.0
+                marker.pose.position = ROSPoint(x=float(point[0]), y=float(point[1]), z=0.0)
+                marker.id = marker_id
+                marker_id += 1
+
+                marker_array.markers.append(marker)
+
+        self.polygon_marker_pub.publish(marker_array)
+        self.get_logger().info('Publishing Polygons MarkerArray.')
+    
 
     def plan_path(self, start_point, end_point, map):
-        self.traj_pub.publish(self.trajectory.toPoseArray())
-        self.trajectory.publish_viz()
+        self.get_logger().info(f"PLANNING PATH FROM {start_point} TO {end_point}")
+
+        self.display_convex_sets()
+
+        start_pos = start_point[:2]
+        goal_pos = end_point[:2]
+
+        # Visualize start and goal markers
+        self.publish_point(start_pos, self.start_pub, 1.0, 1.0, 1.0)
+        self.publish_point(goal_pos, self.end_pub, 0.0, 1.0, 0.0)
+        
+        # Convert convex_sets list to dictionary of Vpolytope objects, with numbers as keys
+        gcs_regions = {}
+        for i, convex_set in enumerate(convex_sets):
+            # Transpose convex_set to be d x n where d is ambient dimension and n is number of points
+            gcs_regions[i+1] = VPolytope(convex_set.T)
+
+        gcs_regions["start"] = Point(start_pos)
+        gcs_regions["goal"] = Point(goal_pos)
+
+        self.visualize_connectivity(gcs_regions)
+        self.get_logger().info("Connectivity graph saved to gcs_regions_connectivity.svg.")
+
+        edges = []
+
+        gcs = GcsTrajectoryOptimization(len(start_pos))
+        gcs_regions = gcs.AddRegions(list(gcs_regions.values()), order=1)
+        source = gcs.AddRegions([Point(start_pos)], order=0)
+        target = gcs.AddRegions([Point(goal_pos)], order=0)
+        edges.append(gcs.AddEdges(source, gcs_regions))
+        edges.append(gcs.AddEdges(gcs_regions, target))
+        
+        gcs.AddPathLengthCost()
+        gcs.AddTimeCost()
+        gcs.AddVelocityBounds(np.array([-1.5, -1.5]), np.array([1.5, 1.5]))
+        gcs.AddPathContinuityConstraints(2)  # degree of continuity
+
+        options = GraphOfConvexSetsOptions()
+        options.preprocessing = True
+        options.max_rounded_paths = 5  # Max number of distinct paths to compare during random rounding; only the lowest cost path is returned.
+        start_time = time.time()
+        self.get_logger().info("Starting gcs.SolvePath.")
+        traj, result = gcs.SolvePath(source, target, options)
+        self.get_logger().info(f"GCS SolvePath Runtime: {time.time() - start_time}")
+
+        if not result.is_success():
+            self.get_logger().info("GCS Solve Fail.")
+            return
+
+        traj_pose_array = PoseArray()
+        for t in np.linspace(traj.start_time(), traj.end_time(), 100):
+            self.get_logger().info(f"{traj.value(t)}")
+
+            pose = Pose()
+            pose.position.x = float(traj.value(t)[0,0])
+            pose.position.y = float(traj.value(t)[1,0])
+            pose.position.z = 0.0  # Assuming z is 0 for 2D coordinates
+            pose.orientation.w = 1.0  # Neutral orientation
+            traj_pose_array.poses.append(pose)
+
+        # set frame so visualization works
+        traj_pose_array.header.frame_id = "/map"  # replace with your frame id
+
+        self.traj_pub.publish(traj_pose_array)
 
 
 def main(args=None):
