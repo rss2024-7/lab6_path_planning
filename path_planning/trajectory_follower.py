@@ -4,6 +4,7 @@ from geometry_msgs.msg import PoseArray, PointStamped, PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from visualization_msgs.msg import Marker
+from std_msgs.msg import Float32
 from wall_follower.visualization_tools import VisualizationTools
 import numpy as np
 
@@ -65,6 +66,10 @@ class PurePursuit(Node):
 
         self.max_steer = 0.34
 
+        self.error_pub = self.create_publisher(Float32, "/error", 1)
+        self.num_dist = 0
+        self.tot_dist = 0
+
         self.initialized_traj = False
 
     def point_callback(self, point_msg):
@@ -76,7 +81,11 @@ class PurePursuit(Node):
     def pose_callback(self, odometry_msg):
 
         # no trajectory to follow
-        if not self.initialized_traj: return
+        if not self.initialized_traj: 
+            drive_msg = AckermannDriveStamped()
+            drive_msg.drive.speed = 0.0
+            self.drive_pub.publish(drive_msg)
+            return
 
         # retrieve odometry data
         car_pos_x = odometry_msg.pose.pose.position.x
@@ -99,6 +108,10 @@ class PurePursuit(Node):
             drive_msg = AckermannDriveStamped()
             drive_msg.drive.speed = 0.0
             self.drive_pub.publish(drive_msg)
+            
+            avg_dist = self.tot_dist / self.num_dist
+            self.get_logger().info("Average error: %s" % avg_dist)
+            self.initialized_traj = False
             return
 
 
@@ -165,18 +178,31 @@ class PurePursuit(Node):
         
         l2 = np.sum((w - v)**2, axis=1)
 
+        l2 += 10e-10
+
         t = np.maximum(0, np.minimum(1, np.sum((p - v) * (w - v), axis=1) / l2))
 
         projections = v + t[:, np.newaxis] * (w - v)
         min_distances = np.linalg.norm(p - projections, axis=1)
 
+        min_dist = np.min(min_distances)
+        error_msg = Float32()
+        error_msg.data = min_dist
+        self.error_pub.publish(error_msg)
+
+        self.num_dist += 1
+        self.tot_dist += min_dist
+
         # if too close to end point of segment, take it out of consideration for closest line segment
         end_point_distances = np.linalg.norm(w-p, axis=1)
-        min_distances[np.where(end_point_distances[:-1] < self.lookahead)] += np.inf
+        min_distances[np.where(end_point_distances[:-1] < self.lookahead)] += 500
 
-        closest_segment_index = np.where(min_distances == np.min(min_distances))[0][0]
+        closest_segment_index = np.where(min_distances == np.min(min_distances))
 
-        return closest_segment_index
+        if len(closest_segment_index) == 0: return 0
+        if len(closest_segment_index[0]) == 0: return 0
+
+        return closest_segment_index[0][0]
     
         # # Non-Numpy Vectorized Version (keeping in case it's faster)
         # def min_dist(x1, y1, x2, y2, px, py):
@@ -258,22 +284,20 @@ class PurePursuit(Node):
 
 
     def trajectory_callback(self, msg):
-        traj_len = len(msg.poses)
-
-        self.get_logger().info(f"Receiving new trajectory {traj_len} points")
+        self.get_logger().info(f"Receiving new trajectory {len(msg.poses)} points")
 
         self.trajectory.clear()
         self.trajectory.fromPoseArray(msg)
         self.trajectory.publish_viz(duration=0.0)
-        self.trajectory.update_distances()
-        self.get_logger().info(f"Trajectory length: {self.trajectory.distance_along_trajectory(traj_len-1)}")
 
-        # self.trajectory.save("current_trajectory.traj")
+        self.trajectory.save("current_trajectory.traj")
 
         self.initialized_traj = True
 
     def init_callback(self, msg):
-        return
+        self.num_dist = 0
+        self.tot_dist = 0
+        self.initialized_traj = False
 
 
 def main(args=None):

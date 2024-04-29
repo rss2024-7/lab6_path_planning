@@ -125,6 +125,8 @@ class PathPlan(Node):
         self.map_orientation = msg.info.origin.orientation
         self.map_position = msg.info.origin.position
         self.map_info = (self.map_data, self.map_width, self.map_height, self.map_resolution)
+        
+        self.RRT_planner = RRT(self.map_info)
 
         self.get_logger().info("map height: " + str(self.map_height))
         self.get_logger().info("map width: " + str(self.map_width))
@@ -179,10 +181,13 @@ class PathPlan(Node):
         
         self.get_logger().info("goal pose: " + np.array2string(self.goal_pose))
 
-        assert self.current_pose is not None
-        assert self.map is not None
-
-
+        if self.current_pose is None:
+            self.get_logger().info("NO STARTING POINT")
+            return
+        if self.map is None:
+            self.get_logger().info("NO MAP")
+            return
+        
         self.plan_path(self.current_pose, self.goal_pose, self.map)
 
     def pub_points(self, points):
@@ -217,57 +222,16 @@ class PathPlan(Node):
 
 
     def plan_path(self, start_point, end_point, map):
-        # pixel1 = self.real_to_pixel(start_point)
-        # pixel2 = self.real_to_pixel(end_point)
-
-        # coords = [start_point]
-        # collision = False
-        # vec = pixel2-pixel1
-        # dist = np.linalg.norm(vec)
-        # num_intervals = int(dist/0.2)
-        # for interval in range(1,num_intervals):
-        #     pixel = np.round(pixel1 + interval/num_intervals * vec)
-        #     pixel = pixel.astype(int)
-        #     coord = self.pixel_to_real(pixel)
-        #     coords.append(coord)
-        #     if self.map_data[self.index_from_pixel(pixel)] != 0:
-        #         collision = True
-        #         self.get_logger().info('collision')
-        #         break
-
-        # if not collision:
-        #     self.get_logger().info('no collision')
-
-        # self.pub_points(coords)
-
 
         self.trajectory.clear()
-        self.nodes_coords = []
-        self.pub_points(self.nodes_coords)
 
-        RRT_planner = RRT(self.map_info, start_point, end_point)
+        self.get_logger().info("Planning path")
+        x, y, theta = start_point
+        path = self.RRT_planner.plan_path(start_point, end_point) #, np.array([x + 0.5*np.cos(theta), y + 0.5*np.sin(theta)]))
+        self.get_logger().info("complete")
 
-        found_end = False
-        start_node = Joint(RRT_planner.start, RRT_planner.start_pixel, 0) # coords, pixel, path_len_from_start, dist_to_end
-        RRT_planner.nodes.append(start_node)
-        self.nodes_coords.append(start_point)
+        path = [tuple(row) for row in path]
 
-        while not found_end:
-            self.get_logger().info("finding new coord")
-            found_end, coords = RRT_planner.sample_node()
-            self.nodes_coords.append(coords)
-            self.pub_points(self.nodes_coords) # visualization
-
-        self.get_logger().info("done")
-
-        end_node = RRT_planner.nodes[-1]
-        real_coords = [(end_node.coords[0], end_node.coords[1])] # need them as a list of tuples
-        parent = end_node.parent
-        while parent:
-            real_coords.append((parent.coords[0], parent.coords[1]))
-            parent = parent.parent
-        
-        path = real_coords[::-1] # reverse the order
         self.trajectory.points = path
         self.trajectory.save(self.save_path)
         self.traj_pub.publish(self.trajectory.toPoseArray())
