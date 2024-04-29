@@ -230,6 +230,10 @@ class PathPlan(Node):
         path = self.RRT_planner.plan_path(start_point, end_point) #, np.array([x + 0.5*np.cos(theta), y + 0.5*np.sin(theta)]))
         self.get_logger().info("complete")
 
+        if path is None:
+            self.get_logger().info("PATH NOT POSSIBLE")
+            return
+
         path = [tuple(row) for row in path]
 
         self.trajectory.points = path

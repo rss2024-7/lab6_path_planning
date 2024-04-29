@@ -2,13 +2,6 @@ import numpy as np
 import random
 import math
 
-class Joint:
-    def __init__(self, coords, pixel, path_len_from_start):
-        self.coords = coords # (x,y) in real coordinates NOT pixel
-        self.pixel = pixel
-        self.path_len_from_start = path_len_from_start # path length from starting point
-        # self.dist_to_end = dist_to_end # NOT path distance
-        self.parent = None
 
 class RRT:
     def __init__(self, map_info):
@@ -68,8 +61,7 @@ class RRT:
         return graph_indices[np.where(distances == np.min(distances))][0]
 
 
-    def plan_path(self, start, end, start2 = None):
-        start_theta = start[2]
+    def plan_path(self, start, end):
         start = np.array([start[0], start[1]]) #[x,y]
         end = np.array([end[0],end[1]]) #[x,y]
 
@@ -81,6 +73,9 @@ class RRT:
         start_index = self.index_from_pixel(start_pixel)
         end_index = self.index_from_pixel(end_pixel)
 
+        if not self.freespace[end_index]:
+            return None
+
         visited = np.copy(self.none_visited)
         visited[start_index] = True
 
@@ -89,30 +84,39 @@ class RRT:
 
         parents = np.copy(self.no_parents)
 
-        if start2 is not None:
-            start2_pixel = self.real_to_pixel(start2)
-            start2_index = self.index_from_pixel(start2_pixel)
-            visited[start2_index] = True
-            parents[start2_index] = start_index
         for _ in range(self.map_data.shape[0]):
             # sample q_rand from C_free
-            # random_index = end_index if np.random.rand() < 0.2 else self.sample_free_index(visited)
             random_index = self.sample_free_index(visited)
-            # random_index = np.random.randint(0, self.map_data.shape[0])
 
             # get q_near
             nearest_index = self.get_nearest_index(visited, random_index)
             nearest_i = self.row_nums[nearest_index]
             nearest_j = self.col_nums[nearest_index]
 
-            # dx = self.col_nums[random_index] - nearest_j
-            # dy = self.row_nums[random_index] - nearest_i
-            # angle = np.arctan2(dy, dx)
-            # if dx < 0 and dy < 0 or dx < 0 and dy > 0: angle += np.pi
-            # if dx > 0 and dy < 0: angle += 2 * np.pi
+            # check for straight line path to goal
+            intersected_i, intersected_j = self.get_intersected_indices(nearest_i, nearest_j,
+                                end_pixel_i, end_pixel_j)
+            intersected_indices = intersected_i * self.map_width + intersected_j
+            collisions = ~self.freespace[intersected_indices]
+            if not np.any(collisions):
+                parents[end_index] = nearest_index
+                visited[end_index] = True
+                
+                current = end_index
+                path = []
+                while current is not None:
+                    path.append(current)
+                    current = parents[current]
+                path.append(start_index)
+                path.reverse()
 
-            # angle_diff = np.abs(angle - angles[nearest_index])
-            # if angle_diff >= np.pi/4: continue
+                path = np.array(path)
+                pixels = np.zeros((len(path), 2))
+                pixels[:, 0] = path // self.map_width
+                pixels[:, 1] = path % self.map_width
+                points = self.pixels_to_real(pixels)
+                return points
+
 
             # finding q_new
             intersected_i, intersected_j = self.get_intersected_indices(nearest_i, nearest_j,
@@ -134,8 +138,6 @@ class RRT:
             col_distances = self.col_nums[intersected_indices] - nearest_j
             distances = row_distances ** 2 + col_distances ** 2
 
-            # intersected_indices = intersected_indices[np.where((distances <= self.max_distance**2))]
-
             distances = np.abs(distances - self.step_size**2)
             intersected_indices = intersected_indices[np.where(distances == np.min(distances))]
 
@@ -148,23 +150,6 @@ class RRT:
             visited[new_index] = True
             # angles[new_index] = angle
 
-            # check if new node near goal
-            dist = (end_pixel_i - self.row_nums[new_index]) ** 2 + (end_pixel_j - self.col_nums[new_index]) ** 2
-            if dist < self.dist_thres ** 2:
-                current = new_index
-                path = []
-                while current is not None:
-                    path.append(current)
-                    current = parents[current]
-                path.append(start_index)
-                path.reverse()
-
-                path = np.array(path)
-                pixels = np.zeros((len(path), 2))
-                pixels[:, 0] = path // self.map_width
-                pixels[:, 1] = path % self.map_width
-                points = self.pixels_to_real(pixels)
-                return points
         return None
 
 
@@ -178,118 +163,6 @@ class RRT:
         
         return indices_i, indices_j
             
-
-
-    def sample_node(self):
-        # returns true if start node has been connected with end node, false otherwise
-        end_node_sample_frequency = 0.2
-
-        valid_pixel = False
-        pixel = None
-        coords = None
-        path_len_from_start = None
-        closest_node = None # aka the parent node
-        ix = None
-
-        used_end_node = False
-        while not valid_pixel:
-            used_end_node = False
-            if np.random.rand() < end_node_sample_frequency: # use end node
-                used_end_node = True
-                pixel = self.end_pixel
-            else:
-                # ix = random.randint(0,len(self.map_data)-1)
-                # while self.map_data[ix] != 0:
-                #     ix = random.randint(0,len(self.map_data)-1)
-                ix = np.random.choice(self.hall_pixels)
-                pixel = self.pixel_from_index(ix)
-
-            coords = self.pixel_to_real(pixel)
-            closest_node, dist_to_closest_node = self.find_closest_node(coords)
-
-            if self.no_collisions_pixel(pixel, closest_node.pixel):
-                if used_end_node: # end node has been found
-                    if dist_to_closest_node < self.max_distance: 
-                        path_len_from_start = closest_node.path_len_from_start + dist_to_closest_node
-                        end_node = Joint(self.end, self.end_pixel, path_len_from_start)
-                        end_node.parent = closest_node
-                        self.nodes.append(end_node)
-                        return True, (self.end[0], self.end[1])
-
-                if dist_to_closest_node > self.max_distance:
-                    vec = coords-closest_node.coords
-                    coords = closest_node.coords + self.max_distance/dist_to_closest_node * vec
-                    dist_to_closest_node = self.max_distance
-                    pixel = self.real_to_pixel(coords) 
-    
-                # valid_pixel = True
-
-                path_len_from_start = closest_node.path_len_from_start + dist_to_closest_node
-                new_node = Joint(coords, pixel, path_len_from_start)  # def __init__(self, coords, pixel, path_len_from_start, dist_to_end)
-                new_node.parent = closest_node
-                self.nodes.append(new_node)
-                return False, (coords[0], coords[1])
-    
-    def find_closest_node(self, new_node_coords): # in real coordinates
-        closest_node = self.nodes[0]
-        min_dist = 1000000
-        for node in self.nodes:
-            dist = np.linalg.norm(node.coords-new_node_coords)
-            if dist < min_dist:
-                min_dist = dist
-                closest_node = node
-
-        return closest_node, min_dist
-
-    def no_collisions_pixel(self, pixel1, pixel2): #also need to check if theta is a valid steering angle
-        if self.map_data[self.index_from_pixel(pixel2)] != 0:
-            return False
-        
-        vec = pixel2-pixel1
-        dist = np.linalg.norm(vec)
-
-        num_intervals = int(dist/0.2)
-        for interval in range(1,num_intervals):
-            pixel = np.round(pixel1 + interval/num_intervals * vec)
-            pixel = pixel.astype(int)
-            if self.map_data[self.index_from_pixel(pixel)] != 0:
-                return False
-            
-        return True
-
-    def no_collisions_dist(self, p1, p2): #also need to check if theta is a valid steering angle
-        vec = p2-p1
-        dist = np.linalg.norm(vec)
-        num_intervals = int(dist/0.1)
-
-        for interval in range(1,num_intervals):
-            coord = p1 + interval/num_intervals * vec
-            pixel = self.real_to_pixel(coord)
-            if self.map_data[self.index_from_pixel(pixel)] != 0:
-                return False
-        return True
-
-
-
-    # def make_tree(self):
-    #     # found_end = False
-    #     # start_node = Joint(self.start, self.start_pixel, 0) # coords, pixel, path_len_from_start, dist_to_end
-    #     # self.nodes.append(start_node)
-    #     # while not found_end:
-    #     #     found_end, coords = self.sample_node()
-
-    #     # end_node = self.nodes[-1]
-    #     # real_coords = [self.end]
-
-    #     # parent = end_node.parent
-    #     # while parent:
-    #     #     real_coords.append((parent.coords[0], parent.coords[1]))
-    #     #     parent = parent.parent
-        
-
-    #     # return real_coords[::-1]
-    #     return True
-        
 
 
     # utils 

@@ -99,19 +99,22 @@ class PurePursuit(Node):
 
         # get info about closest segment
         closest_segment_index = self.find_closest_segment(traj_x, traj_y, car_pos_x, car_pos_y)
+        seg_start_x, seg_start_y = traj_x[closest_segment_index], traj_y[closest_segment_index]
+        car_to_seg_start_x, car_to_seg_start_y = self.to_car_frame(seg_start_x, seg_start_y, car_pos_x, car_pos_y, car_angle)
         seg_end_x, seg_end_y = traj_x[closest_segment_index + 1], traj_y[closest_segment_index + 1]
         car_to_seg_end_x, car_to_seg_end_y = self.to_car_frame(seg_end_x, seg_end_y, car_pos_x, car_pos_y, car_angle)
 
         # on last segment and past end
         if (closest_segment_index + 1 == len(traj_x) - 1 and \
-            car_to_seg_end_x < 0): 
+            car_to_seg_start_x < 0 and \
+            -2 < car_to_seg_end_x < 0): 
             drive_msg = AckermannDriveStamped()
             drive_msg.drive.speed = 0.0
             self.drive_pub.publish(drive_msg)
             
             avg_dist = self.tot_dist / self.num_dist
-            self.get_logger().info("Average error: %s" % avg_dist)
-            self.initialized_traj = False
+            # self.get_logger().info("Average error: %s" % avg_dist)
+            # self.initialized_traj = False
             return
 
 
