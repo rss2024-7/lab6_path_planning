@@ -1,0 +1,20 @@
+[10.547s] Invoking command in '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning': PYTHONPATH=/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/prefix_override:/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --editable --build-directory /home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/build --no-deps install_data
+[14.559s] running develop
+[15.484s] running egg_info
+[15.487s] writing path_planning.egg-info/PKG-INFO
+[15.494s] writing dependency_links to path_planning.egg-info/dependency_links.txt
+[15.500s] writing entry points to path_planning.egg-info/entry_points.txt
+[15.505s] writing requirements to path_planning.egg-info/requires.txt
+[15.509s] writing top-level names to path_planning.egg-info/top_level.txt
+[15.772s] reading manifest file 'path_planning.egg-info/SOURCES.txt'
+[15.988s] writing manifest file 'path_planning.egg-info/SOURCES.txt'
+[16.396s] running build_ext
+[16.405s] Creating /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages/path-planning.egg-link (link to .)
+[16.426s] Installing trajectory_builder script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning
+[16.447s] Installing trajectory_follower script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning
+[16.470s] Installing trajectory_loader script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning
+[16.493s] Installing trajectory_planner script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning
+[16.520s] 
+[16.521s] Installed /home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning
+[16.524s] running install_data
+[17.014s] Invoked command in '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning' returned '0': PYTHONPATH=/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/prefix_override:/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --editable --build-directory /home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/build --no-deps install_data

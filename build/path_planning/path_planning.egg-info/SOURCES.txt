@@ -6,12 +6,19 @@ config/real/pf_config.yaml
 config/sim/pf_config.yaml
 config/sim/pf_sim_config.yaml
 config/sim/sim_config.yaml
+example_trajectories/2024-04-18-17-46-53.traj
+example_trajectories/track_trial2.traj
 example_trajectories/trajectory_1.traj
 example_trajectories/trajectory_2.traj
 example_trajectories/trajectory_3.traj
+example_trajectories/trajectory_track.traj
 launch/debug/build_trajectory.launch.xml
 launch/debug/follow_trajectory.launch.xml
 launch/debug/load_trajectory.launch.xml
+launch/debug/load_trajectory1.launch.xml
+launch/debug/load_trajectory2.launch.xml
+launch/debug/load_trajectory3.launch.xml
+launch/debug/load_trajectory_track.launch.xml
 launch/real/real.launch.xml
 launch/sim/pf_sim_plan_follow.launch.xml
 launch/sim/sim_plan.launch.xml
@@ -23,6 +30,7 @@ path_planning/trajectory_follower.py
 path_planning/trajectory_loader.py
 path_planning/trajectory_planner.py
 path_planning/utils.py
+path_planning/visualization_tools.py
 path_planning.egg-info/PKG-INFO
 path_planning.egg-info/SOURCES.txt
 path_planning.egg-info/dependency_links.txt

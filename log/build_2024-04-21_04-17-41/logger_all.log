@@ -1,0 +1,92 @@
+[7.389s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build', '--symlink-install']
+[7.390s] DEBUG:colcon:Parsed command line arguments: Namespace(ament_cmake_args=None, base_paths=['.'], build_base='build', catkin_cmake_args=None, catkin_skip_building_tests=False, cmake_args=None, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, cmake_target=None, cmake_target_skip_unavailable=False, continue_on_error=False, event_handlers=None, executor='parallel', ignore_user_meta=False, install_base='install', log_base=None, log_level=None, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7fe4c8c31d60>>, merge_install=False, metas=['./colcon.meta'], packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_end=None, packages_ignore=None, packages_ignore_regex=None, packages_select=None, packages_select_build_failed=False, packages_select_by_dep=None, packages_select_regex=None, packages_select_test_failures=False, packages_skip=None, packages_skip_build_finished=False, packages_skip_by_dep=None, packages_skip_regex=None, packages_skip_test_passed=False, packages_skip_up_to=None, packages_start=None, packages_up_to=None, packages_up_to_regex=None, parallel_workers=8, paths=None, symlink_install=True, test_result_base=None, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7fe4c8c31d60>, verb_name='build', verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0x7fe4c88c1700>)
+[7.870s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[7.871s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[7.872s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[7.872s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[7.872s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[7.873s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[7.873s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/racecar/racecar_ws/src/lab6_path_planning'
+[7.875s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[7.875s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[7.876s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[7.876s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[7.877s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[7.877s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[7.877s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[7.878s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[7.878s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[7.918s] DEBUG:colcon.colcon_core.package_identification:Package '.' with type 'ros.ament_python' and name 'path_planning'
+[7.919s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[7.919s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[7.919s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[7.919s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[7.919s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[8.543s] Level 5:colcon.colcon_core.verb:set package 'path_planning' build argument 'cmake_args' from command line to 'None'
+[8.543s] Level 5:colcon.colcon_core.verb:set package 'path_planning' build argument 'cmake_target' from command line to 'None'
+[8.543s] Level 5:colcon.colcon_core.verb:set package 'path_planning' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[8.544s] Level 5:colcon.colcon_core.verb:set package 'path_planning' build argument 'cmake_clean_cache' from command line to 'False'
+[8.544s] Level 5:colcon.colcon_core.verb:set package 'path_planning' build argument 'cmake_clean_first' from command line to 'False'
+[8.544s] Level 5:colcon.colcon_core.verb:set package 'path_planning' build argument 'cmake_force_configure' from command line to 'False'
+[8.545s] Level 5:colcon.colcon_core.verb:set package 'path_planning' build argument 'ament_cmake_args' from command line to 'None'
+[8.545s] Level 5:colcon.colcon_core.verb:set package 'path_planning' build argument 'catkin_cmake_args' from command line to 'None'
+[8.545s] Level 5:colcon.colcon_core.verb:set package 'path_planning' build argument 'catkin_skip_building_tests' from command line to 'False'
+[8.545s] DEBUG:colcon.colcon_core.verb:Building package 'path_planning' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning', 'merge_install': False, 'path': '/home/racecar/racecar_ws/src/lab6_path_planning', 'symlink_install': True, 'test_result_base': None}
+[8.634s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[8.724s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[8.725s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/racecar/racecar_ws/src/lab6_path_planning' with build type 'ament_python'
+[8.725s] Level 1:colcon.colcon_core.shell:create_environment_hook('path_planning', 'ament_prefix_path')
+[8.866s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[8.867s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/hook/ament_prefix_path.ps1'
+[8.882s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/hook/ament_prefix_path.dsv'
+[8.897s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/hook/ament_prefix_path.sh'
+[9.008s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[9.009s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[13.204s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/racecar/racecar_ws/src/lab6_path_planning'
+[13.303s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[13.304s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[20.339s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning': PYTHONPATH=/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/prefix_override:/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --editable --build-directory /home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/build --no-deps install_data
+[27.662s] Level 1:colcon.colcon_core.shell:create_environment_hook('path_planning', 'pythonpath_develop')
+[27.664s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning' returned '0': PYTHONPATH=/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/prefix_override:/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --editable --build-directory /home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/build --no-deps install_data
+[27.757s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/share/path_planning/hook/pythonpath_develop.ps1'
+[27.774s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/share/path_planning/hook/pythonpath_develop.dsv'
+[27.791s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/share/path_planning/hook/pythonpath_develop.sh'
+[27.971s] Level 1:colcon.colcon_core.environment:checking '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning' for CMake module files
+[28.055s] Level 1:colcon.colcon_core.environment:checking '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning' for CMake config files
+[28.242s] Level 1:colcon.colcon_core.environment:checking '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib'
+[28.247s] Level 1:colcon.colcon_core.environment:checking '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/bin'
+[28.249s] Level 1:colcon.colcon_core.environment:checking '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/pkgconfig/path_planning.pc'
+[28.253s] Level 1:colcon.colcon_core.environment:checking '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages'
+[28.257s] Level 1:colcon.colcon_core.shell:create_environment_hook('path_planning', 'pythonpath')
+[28.358s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/hook/pythonpath.ps1'
+[28.378s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/hook/pythonpath.dsv'
+[28.396s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/hook/pythonpath.sh'
+[28.413s] Level 1:colcon.colcon_core.environment:checking '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/bin'
+[28.415s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(path_planning)
+[28.509s] INFO:colcon.colcon_core.shell:Creating package script '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/package.ps1'
+[28.524s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/package.dsv'
+[28.540s] INFO:colcon.colcon_core.shell:Creating package script '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/package.sh'
+[28.556s] INFO:colcon.colcon_core.shell:Creating package script '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/package.bash'
+[28.573s] INFO:colcon.colcon_core.shell:Creating package script '/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/package.zsh'
+[28.587s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/colcon-core/packages/path_planning)
+[28.597s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[28.598s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[28.598s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[28.598s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[28.787s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.notify_send': Could not find 'notify-send'
+[28.788s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[28.788s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[28.788s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[32.055s] DEBUG:colcon.colcon_notification.desktop_notification.notify2:Failed to initialize notify2: org.freedesktop.DBus.Error.Spawn.ExecFailed: /usr/bin/dbus-launch terminated abnormally with the following error: Autolaunch error: X11 initialization failed.
+
+[32.056s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[32.171s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/racecar/racecar_ws/src/lab6_path_planning/install/local_setup.ps1'
+[32.178s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/racecar/racecar_ws/src/lab6_path_planning/install/_local_setup_util_ps1.py'
+[32.186s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/racecar/racecar_ws/src/lab6_path_planning/install/setup.ps1'
+[32.319s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/racecar/racecar_ws/src/lab6_path_planning/install/local_setup.sh'
+[32.325s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/racecar/racecar_ws/src/lab6_path_planning/install/_local_setup_util_sh.py'
+[32.332s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/racecar/racecar_ws/src/lab6_path_planning/install/setup.sh'
+[32.489s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/racecar/racecar_ws/src/lab6_path_planning/install/local_setup.bash'
+[32.497s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/racecar/racecar_ws/src/lab6_path_planning/install/setup.bash'
+[32.691s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/racecar/racecar_ws/src/lab6_path_planning/install/local_setup.zsh'
+[32.701s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/racecar/racecar_ws/src/lab6_path_planning/install/setup.zsh'
