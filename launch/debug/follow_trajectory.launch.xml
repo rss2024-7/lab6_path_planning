@@ -2,5 +2,6 @@
     <node pkg="path_planning" exec="trajectory_follower" name="trajectory_follower">
         <param name="odom_topic" value="/odom"/>
         <param name="drive_topic" value="/drive"/>
+        <param name="lane" value="$(find-pkg-share path_planning)/example_trajectories/full-lane.traj"/>
     </node>
 </launch>

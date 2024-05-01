@@ -1,14 +1,15 @@
 import rclpy
 from ackermann_msgs.msg import AckermannDriveStamped
-from geometry_msgs.msg import PoseArray, PointStamped, PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseArray, PointStamped, PoseWithCovarianceStamped, Point
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from visualization_msgs.msg import Marker
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, ColorRGBA
 from wall_follower.visualization_tools import VisualizationTools
 import numpy as np
 
 from .utils import LineTrajectory
+import time
 
 
 class PurePursuit(Node):
@@ -23,16 +24,21 @@ class PurePursuit(Node):
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
         self.drive_topic = self.get_parameter('drive_topic').get_parameter_value().string_value
 
+        self.dist_from_shell = 0.5
+        self.follow_shell = False
+
+        self.lane_offset = 0.4
+
         self.lookahead = 1  # FILL IN #
         self.speed = 4.0  # FILL IN #
         self.wheelbase_length = 0.3  # FILL IN #
 
         # Adjust lookahead based on angle to lookahead point
         # higher angle error ~ lower lookahead distance
-        self.min_lookahead = 1.0 
+        self.min_lookahead = 0.5 
         self.max_lookahead = 2.0 
 
-        self.speed_to_lookahead = 2.0
+        self.speed_to_lookahead = 1.0
         
         # the angle to target s.t. the lookahead will be at its minimum
         self.min_lookahead_angle = np.deg2rad(90) 
@@ -72,30 +78,111 @@ class PurePursuit(Node):
 
         self.initialized_traj = False
 
+        self.declare_parameter("lane", "default")
+        path = self.get_parameter("lane").get_parameter_value().string_value
+        self.lane_traj = LineTrajectory(self, "/lane")
+        self.lane_traj.load(path)
+
+        # need to wait a short period of time before publishing the first message
+        time.sleep(0.5)
+
+        # visualize the loaded trajectory
+        self.lane_traj.publish_viz()
+
+        self.shell_pub = self.create_publisher(Marker, "/shell_point", 3)
+        self.shell_near_pub = self.create_publisher(Marker, "/shell_near_point", 3)
+
+        self.shell_traj = LineTrajectory(self, "/shellpath")
+        self.shell_locations = []
+
+        self.num_shells = 0
+
+    def find_closest_point(self, x, y):
+        points = np.array(self.lane_traj.points)
+        traj_x = points[:, 0]
+        traj_y = points[:, 1]
+      
+        points = np.vstack((traj_x, traj_y)).T
+        v = points[:-1, :] # segment start points
+        w = points[1:, :] # segment end points
+
+        p = np.array([x, y])
+        
+        l2 = np.sum((w - v)**2, axis=1)
+
+        t = np.maximum(0, np.minimum(1, np.sum((p - v) * (w - v), axis=1) / l2))
+
+        projections = v + t[:, np.newaxis] * (w - v)
+        min_distances = np.linalg.norm(p - projections, axis=1)
+
+        closest_segment_index = np.where(min_distances == np.min(min_distances))[0][0]
+
+        
+        start = v[closest_segment_index]
+        end = w[closest_segment_index]
+        p = np.array([x, y])
+
+        projection_proportion = np.dot(end - start, p - start) / np.linalg.norm(end - start) ** 2
+        closest_point = start + projection_proportion * (end - start)
+
+        dist = np.linalg.norm(closest_point - p)
+        
+        near_point = p + self.dist_from_shell / dist * (closest_point - p)
+
+        return near_point
+
     def point_callback(self, point_msg):
-        self.get_logger().info("adding point")
-        self.trajectory.addPoint((point_msg.point.x, point_msg.point.y))
-        self.trajectory.publish_viz(duration=0.0)
-        self.trajectory.save("trajectory_custom.traj")
+        self.initialized_traj = True
+        near_point = self.find_closest_point(point_msg.point.x, point_msg.point.y)
+
+        self.get_logger().info(f'{point_msg.point.x=} {point_msg.point.y=}')
+        self.get_logger().info(f'{near_point=}')
+
+        self.pub_point(self.shell_pub, (0.0, 1.0, 0.0), (point_msg.point.x, point_msg.point.y))
+        self.pub_point(self.shell_near_pub, (1.0, 0.0, 0.0), near_point)
+
+        self.num_shells += 1
+
+    def pub_point(self, pub, rgb, point):
+        color = ColorRGBA()
+        color.r, color.g, color.b = rgb 
+        color.a = 1.0
+
+        marker = Marker()
+        marker.header.frame_id = "map"
+        marker.type = marker.SPHERE
+        marker.action = marker.ADD
+        marker.scale.x = 0.25
+        marker.scale.y = 0.25
+        marker.scale.z = 0.25
+        marker.color = color
+        marker.pose.orientation.w = 1.0
+        marker.pose.position = Point(x=float(point[0]), y=float(point[1]), z=0.0)
+
+        pub.publish(marker)
+
 
     def pose_callback(self, odometry_msg):
 
-        # no trajectory to follow
-        if not self.initialized_traj: 
-            drive_msg = AckermannDriveStamped()
-            drive_msg.drive.speed = 0.0
-            self.drive_pub.publish(drive_msg)
+        if self.num_shells < 3: return
+
+        if not self.initialized_traj:
             return
+
+        # process trajectory points into np arrays
+        points = np.array(self.lane_traj.points)
+
+        # shell path to follow
+        if self.follow_shell: 
+            points = np.array(self.shell_traj.points)
+    
+        traj_x = points[:, 0]
+        traj_y = points[:, 1]
 
         # retrieve odometry data
         car_pos_x = odometry_msg.pose.pose.position.x
         car_pos_y = odometry_msg.pose.pose.position.y
         car_angle = 2 * np.arctan2(odometry_msg.pose.pose.orientation.z, odometry_msg.pose.pose.orientation.w)
-
-        # process trajectory points into np arrays
-        points = np.array(self.trajectory.points)
-        traj_x = points[:, 0]
-        traj_y = points[:, 1]
 
         # get info about closest segment
         closest_segment_index = self.find_closest_segment(traj_x, traj_y, car_pos_x, car_pos_y)
@@ -111,8 +198,18 @@ class PurePursuit(Node):
             drive_msg = AckermannDriveStamped()
             drive_msg.drive.speed = 0.0
             self.drive_pub.publish(drive_msg)
+
+            if self.follow_shell:
+                time.sleep(5)
+                drive_msg = AckermannDriveStamped()
+                drive_msg.drive.speed = -1.0
+                self.drive_pub.publish(drive_msg)
+                time.sleep(2)
+                self.follow_shell = False
+            else:
+                self.lane_traj.points.reverse()
             
-            avg_dist = self.tot_dist / self.num_dist
+            # avg_dist = self.tot_dist / self.num_dist
             # self.get_logger().info("Average error: %s" % avg_dist)
             # self.initialized_traj = False
             return
@@ -133,13 +230,25 @@ class PurePursuit(Node):
         car_to_target_x, car_to_target_y = self.to_car_frame(target_point_x, target_point_y, car_pos_x, car_pos_y, car_angle)
 
 
+        if not self.follow_shell:
+            car_to_target_x -= self.lane_offset
+            car_to_target_y -= self.lane_offset
+
+
+        # U TURN
+        if car_to_target_x < -0.5 and not self.follow_shell:
+            drive_msg = AckermannDriveStamped()
+            drive_msg.drive.speed = self.lookahead * self.speed_to_lookahead
+            steer_angle = self.max_steer
+            drive_msg.drive.steering_angle = steer_angle
+            self.drive_pub.publish(drive_msg)
+            return
+
         # Visualize Stuff
         VisualizationTools.plot_line(np.array([0, car_to_target_x]), np.array([0, car_to_target_y]), self.target_pub, frame="base_link")
         angles = np.linspace(-np.pi, np.pi, 100)
         circle_x = self.lookahead * np.cos(angles)
         circle_y = self.lookahead * np.sin(angles)
-        circle_x = 0.9 * np.cos(angles)
-        circle_y = 0.9 * np.sin(angles)
         VisualizationTools.plot_line(circle_x, circle_y, self.radius_pub, frame="base_link")
 
 
@@ -199,6 +308,9 @@ class PurePursuit(Node):
         # if too close to end point of segment, take it out of consideration for closest line segment
         end_point_distances = np.linalg.norm(w-p, axis=1)
         min_distances[np.where(end_point_distances[:-1] < self.lookahead)] += 500
+
+        if np.min(min_distances) > self.lookahead:
+            self.lookahead = np.min(min_distances)
 
         closest_segment_index = np.where(min_distances == np.min(min_distances))
 
@@ -289,21 +401,23 @@ class PurePursuit(Node):
     def trajectory_callback(self, msg):
         self.get_logger().info(f"Receiving new trajectory {len(msg.poses)} points")
 
-        self.trajectory.clear()
-        self.trajectory.fromPoseArray(msg)
-        self.trajectory.publish_viz(duration=0.0)
+        self.shell_traj.clear()
+        self.shell_traj.fromPoseArray(msg)
+        self.shell_traj.publish_viz(duration=0.0)
 
-        self.trajectory.save("current_trajectory.traj")
+        # self.trajectory.save("current_trajectory.traj")
 
-        self.initialized_traj = True
+        self.follow_shell = True
 
     def init_callback(self, msg):
         self.num_dist = 0
         self.tot_dist = 0
-        self.initialized_traj = False
+        # self.initialized_traj = False
 
 
 def main(args=None):
+
+
 
     rclpy.init(args=args)
     follower = PurePursuit()

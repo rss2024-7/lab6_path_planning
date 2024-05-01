@@ -7,7 +7,7 @@ class RRT:
     def __init__(self, map_info):
         self.max_distance = 2 / 0.054 
         self.dist_thres = 1 / 0.054
-        self.step_size = 0.5 / 0.054
+        self.step_size = 2 / 0.054
 
         self.map_data = np.array(map_info[0]) # AKA occupancy grid
         self.map_width = map_info[1] #1730
@@ -86,7 +86,8 @@ class RRT:
 
         for _ in range(self.map_data.shape[0]):
             # sample q_rand from C_free
-            random_index = self.sample_free_index(visited)
+            # random_index = self.sample_free_index(visited)
+            random_index = np.random.randint(0, self.map_data.shape[0])
 
             # get q_near
             nearest_index = self.get_nearest_index(visited, random_index)

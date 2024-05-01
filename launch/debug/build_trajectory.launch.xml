@@ -1,3 +1,4 @@
 <launch>
     <node pkg="path_planning" exec="trajectory_builder" name="trajectory_builder" output="screen"/>
+    <param name="trajectory" value="$(find-pkg-share path_planning)/example_trajectories/rough_master_road.traj"/>
 </launch>

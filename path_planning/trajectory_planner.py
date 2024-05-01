@@ -2,12 +2,11 @@ import rclpy
 from rclpy.node import Node
 
 assert rclpy
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray, Point
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray, Point, PointStamped
 from visualization_msgs.msg import Marker, MarkerArray
-from nav_msgs.msg import OccupancyGrid
+from nav_msgs.msg import OccupancyGrid, Odometry
 from .utils import LineTrajectory
 from .rrt import RRT
-from .rrt import Joint
 
 from std_msgs.msg import ColorRGBA
 
@@ -33,6 +32,9 @@ class PathPlan(Node):
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
         self.map_topic = self.get_parameter('map_topic').get_parameter_value().string_value
         self.initial_pose_topic = self.get_parameter('initial_pose_topic').get_parameter_value().string_value
+
+        self.shell_radius = 10  # meters
+        self.dist_from_shell = 0.5  # meters
 
         self.map_sub = self.create_subscription(
             OccupancyGrid,
@@ -73,6 +75,18 @@ class PathPlan(Node):
             20
         )
 
+        self.odom_sub = self.create_subscription(
+            Odometry,
+            self.odom_topic,
+            self.shell_path,
+            1
+        )
+
+        self.shell_sub = self.create_subscription(PointStamped,
+                                            "/clicked_point",
+                                            self.shell_callback,
+                                            1)
+
         # parent_directory = os.path.abspath('..')
         # sys.path.append(parent_directory)
         # script_dir = sys.path[0]
@@ -109,8 +123,25 @@ class PathPlan(Node):
 
         self.nodes_coords = []
 
+        self.declare_parameter("lane", "default")
+        path = self.get_parameter("lane").get_parameter_value().string_value
+        self.lane_traj = LineTrajectory(self, "/lane")
+        self.lane_traj.load(path)
+
+        self.shell_points = []
+
 
         self.get_logger().info("------READY-----")
+
+    def edit_map(self, p1, p2): #where p1 and p2 are adjacent points in .traj
+        vec = p2-p1
+        dist = np.linalg.norm(vec)
+        num_intervals = int(dist/0.01)
+
+        for interval in range(1,num_intervals):
+            coord = p1 + interval/num_intervals * vec
+            pixel = self.real_to_pixel(coord)
+            self.map_data[self.index_from_pixel(pixel)] = 100
 
     def map_cb(self, msg):
         self.map = msg
@@ -120,6 +151,10 @@ class PathPlan(Node):
         self.map_height = msg.info.height
         self.map_resolution = msg.info.resolution  # resolution in meters/cell
         self.map_data = msg.data
+
+        points = self.lane_traj.points
+        for i in range(len(points) - 1):
+            self.edit_map(np.array(points[i]), np.array(points[i + 1]))
 
         # self.map_data = self.padded_map_grid
         self.map_orientation = msg.info.origin.orientation
@@ -144,8 +179,69 @@ class PathPlan(Node):
         # self.get_logger().info("orientation: ", str(self.map_orientation))
         # self.get_logger().info("position: ", str(self.map_orientation))
         # self.get_logger().info("map: " + np.array2string(self.map_data))
-        
+    def shell_path(self, msg):
+        car_pos_x = msg.pose.pose.position.x
+        car_pos_y = msg.pose.pose.position.y
 
+        car_pos = np.array([car_pos_x, car_pos_y])
+
+        # self.get_logger().info(f'{self.shell_points=}')
+
+        if len(self.shell_points) == 0: 
+            return
+
+        if np.linalg.norm(car_pos - self.shell_points[0]) > self.shell_radius:
+            return
+
+        self.get_logger().info("planning shell path...")
+        self.plan_path(car_pos, self.shell_points.pop(0), self.map)
+    
+    def find_closest_point(self, x, y):
+        points = np.array(self.lane_traj.points)
+        traj_x = points[:, 0]
+        traj_y = points[:, 1]
+      
+        points = np.vstack((traj_x, traj_y)).T
+        v = points[:-1, :] # segment start points
+        w = points[1:, :] # segment end points
+
+        p = np.array([x, y])
+        
+        l2 = np.sum((w - v)**2, axis=1)
+
+        t = np.maximum(0, np.minimum(1, np.sum((p - v) * (w - v), axis=1) / l2))
+
+        projections = v + t[:, np.newaxis] * (w - v)
+        min_distances = np.linalg.norm(p - projections, axis=1)
+
+        closest_segment_index = np.where(min_distances == np.min(min_distances))[0][0]
+
+        
+        start = v[closest_segment_index]
+        end = w[closest_segment_index]
+        p = np.array([x, y])
+
+        line_length = np.linalg.norm(end - start)
+        projection_proportion = np.dot(end - start, p - start) / line_length ** 2
+        closest_point = start + projection_proportion * (end - start)
+
+        dist = np.linalg.norm(closest_point - p)
+        
+        
+        near_point = p + self.dist_from_shell / dist * (closest_point - p)
+
+        return near_point
+        
+    def shell_callback(self, point_msg):
+        near_point = self.find_closest_point(point_msg.point.x, point_msg.point.y)
+
+        self.get_logger().info(f'{point_msg.point.x=} {point_msg.point.y=}')
+        self.get_logger().info(f'{near_point=}')
+
+        self.shell_points.append(near_point)
+
+        # self.pub_point(self.shell_pub, (0.0, 1.0, 0.0), (point_msg.point.x, point_msg.point.y))
+        # self.pub_point(self.shell_near_pub, (1.0, 0.0, 0.0), near_point)
 
     def pose_cb(self, msg):
         # gets the initial pose 
@@ -226,7 +322,7 @@ class PathPlan(Node):
         self.trajectory.clear()
 
         self.get_logger().info("Planning path")
-        x, y, theta = start_point
+
         path = self.RRT_planner.plan_path(start_point, end_point) #, np.array([x + 0.5*np.cos(theta), y + 0.5*np.sin(theta)]))
         self.get_logger().info("complete")
 
