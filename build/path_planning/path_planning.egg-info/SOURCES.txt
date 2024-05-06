@@ -25,6 +25,7 @@ launch/sim/sim_plan.launch.xml
 launch/sim/sim_plan_follow.launch.xml
 path_planning/__init__.py
 path_planning/convex_set_build_tool.py
+path_planning/nominal_path.py
 path_planning/trajectory_builder.py
 path_planning/trajectory_follower.py
 path_planning/trajectory_loader.py
