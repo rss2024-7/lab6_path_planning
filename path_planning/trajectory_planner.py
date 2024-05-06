@@ -62,7 +62,7 @@ class PathPlan(Node):
         self.initial_pose_topic = self.get_parameter('initial_pose_topic').get_parameter_value().string_value
 
         self.TURN_RADIUS = 0.9
-        self.ARM_LENGTH = 0.75
+        self.ARM_LENGTH = 0.5
 
         self.map_sub = self.create_subscription(
             OccupancyGrid,
@@ -108,14 +108,23 @@ class PathPlan(Node):
         self.trajectory_pub = self.create_publisher(Marker, "viz/trajectory", 10)
         self.closest_pt_pub = self.create_publisher(Marker, "viz/closest_pt", 1)
         self.shell_pub = self.create_publisher(Marker, "viz/shell_pub", 1)
+        self.deviation_point_pub = self.create_publisher(Marker, "viz/deviation_point", 1)
         self.circle_pub = self.create_publisher(Marker, "viz/circle_pub", 1)
         self.line_pub = self.create_publisher(Marker, "viz/line_pub", 1)
-        self.line_id = 0  # Initialize a counter for line marker IDs
+        self.id = 0  # Initialize a counter for line marker IDs
 
         self.current_pose = None
         self.goal_pose = None
         self.map = None
         self.trajectory = nominal_path  # initialize trajectory to nominal
+
+        x = 25.900000
+        y = 48.50000
+        theta = 3.14
+        resolution = 0.0504
+        self.transform = np.array([[np.cos(theta), -np.sin(theta), x],
+                                    [np.sin(theta), np.cos(theta), y],
+                                    [0,0,1]])
 
         self.get_logger().info("=============================READY=============================")
 
@@ -128,10 +137,6 @@ class PathPlan(Node):
         self.map_height = msg.info.height
         self.map_resolution = msg.info.resolution  # resolution in meters/cell
         self.map_data = msg.data
-
-        points = self.lane_traj.points
-        for i in range(len(points) - 1):
-            self.edit_map(np.array(points[i]), np.array(points[i + 1]))
 
         # self.map_data = self.padded_map_grid
         self.map_orientation = msg.info.origin.orientation
@@ -200,29 +205,30 @@ class PathPlan(Node):
         self.get_logger().info(f"shell_pose set: {self.goal_pose}")
 
 
-    def publish_point(self, point, publisher, r, g, b):
+    def publish_point(self, point, publisher, r, g, b, size=0.3):
         if publisher.get_subscription_count() > 0:
             marker = Marker()
             marker.header.frame_id = "map"
-            marker.id = 0
+            marker.id = self.id
             marker.type = 2  # sphere
             marker.action = 0
             marker.pose.position.x = point[0]
             marker.pose.position.y = point[1]
             marker.pose.orientation.w = 1.0
-            marker.scale.x = 0.3
-            marker.scale.y = 0.3
-            marker.scale.z = 0.3
+            marker.scale.x = size
+            marker.scale.y = size
+            marker.scale.z = size
             marker.color.r = r
             marker.color.g = g
             marker.color.b = b
             marker.color.a = 1.0
             publisher.publish(marker)
+            self.id += 1
         elif publisher.get_subscription_count() == 0:
             self.get_logger().info("Not publishing point, no subscribers")
 
 
-    def publish_circle(self, center, radius):
+    def publish_circle(self, center, radius, id=0):
         marker = Marker()
         marker.header.frame_id = "map"
         marker.header.stamp = self.get_clock().now().to_msg()
@@ -255,7 +261,7 @@ class PathPlan(Node):
         line_strip = Marker()
         line_strip.type = Marker.LINE_STRIP
         line_strip.header.frame_id = "map"
-        line_strip.id = self.line_id  # Set a unique ID for each line
+        line_strip.id = self.id  # Set a unique ID for each line
 
         line_strip.scale.x = 0.01
         line_strip.scale.y = 0.01
@@ -274,7 +280,7 @@ class PathPlan(Node):
         line_strip.points.append(p)
 
         self.line_pub.publish(line_strip)
-        self.line_id += 1  # Increment the ID for the next line
+        self.id += 1  # Increment the ID for the next line
 
 
     def find_tangent_point(self, p, c, r, shell_pos):
@@ -345,10 +351,57 @@ class PathPlan(Node):
         return False
     
 
-    def plan_path(self, shell_point, map):
-        self.get_logger().info(f"PLANNING PATH DEVIATION TO {shell_point}")
+    def circle_to_trajectory(self, c, r, pt1, pt2, num_points=20):
+        # Calculate angles for pt1 and pt2
+        theta1 = np.arctan2(pt1[1] - c[1], pt1[0] - c[0])
+        theta2 = np.arctan2(pt2[1] - c[1], pt2[0] - c[0])
+        
+        # Normalize angles between 0 and 2*pi
+        theta1 = theta1 if theta1 >= 0 else theta1 + 2 * np.pi
+        theta2 = theta2 if theta2 >= 0 else theta2 + 2 * np.pi
 
-        VisualizationTools.plot_line([point['x'] for point in self.trajectory['points']], [point['y'] for point in self.trajectory['points']], self.trajectory_pub)
+        # Determine direction of the shortest path
+        if (theta2 - theta1) % (2 * np.pi) > np.pi:
+            theta1, theta2 = theta2, theta1
+
+        # Create an array of angles from theta1 to theta2
+        if theta1 > theta2:
+            theta2 += 2 * np.pi
+        angles = np.linspace(theta1, theta2, num_points)
+        
+        x_coords = c[0] + r * np.cos(angles)
+        y_coords = c[1] + r * np.sin(angles)
+
+        for i in range(len(x_coords)-1):
+            in_collision = self.check_segment_collision(np.array([x_coords[i], y_coords[i]]), np.array([x_coords[i+1], y_coords[i+1]]))
+            if in_collision:
+                return np.array([None]), np.array([None])
+        
+        for i in range(len(x_coords)):  # Visualize if no collision
+            time.sleep(0.02)
+            self.publish_point(np.array([x_coords[i], y_coords[i]]), self.deviation_point_pub, 0.0, 0.0, 1.0, size=0.1)
+
+        return np.vstack((x_coords, y_coords))
+    
+
+    def plan_deviation(self, segment, circle_center, shell_pos):
+        for pt in np.linspace(np.array([self.trajectory["points"][segment[0]]["x"], self.trajectory["points"][segment[0]]["y"]]),
+                                np.array([self.trajectory["points"][segment[1]]["x"], self.trajectory["points"][segment[1]]["y"]]),
+                                50):
+            tangent_pt = self.find_tangent_point(pt, circle_center, self.TURN_RADIUS, shell_pos)
+            if tangent_pt.any() == None:
+                continue
+            in_collision = self.check_segment_collision(pt, tangent_pt)
+            if not in_collision:
+                self.publish_line(pt, tangent_pt)
+                self.publish_point(tangent_pt, self.deviation_point_pub, 0.0, 0.0, 1.0, size=0.1)
+                return tangent_pt  # once we find a non-colliding tangent point, return it
+            else:
+                self.get_logger().info("collision")
+
+
+    def plan_path(self, shell_point, map):
+        self.get_logger().info(f"PLANNING PATH TO {shell_point}")
 
         shell_pos = shell_point[:2]
 
@@ -406,20 +459,22 @@ class PathPlan(Node):
         else:
             # shell point is at a "corner", between two line segments of the nominal trajectory
             if self.trajectory["points"][closest_idx]["x"] == closest_pt[0] and self.trajectory["points"][closest_idx]["y"] == closest_pt[1]:
-                pass
+                if closest_idx > 0:
+                    deviation_pt_1 = self.plan_deviation([closest_idx-1, closest_idx], circle_center, shell_pos)
+                if closest_idx < len(self.trajectory["points"])-1:
+                    deviation_pt_2 = self.plan_deviation([closest_idx+1, closest_idx], circle_center, shell_pos)
             else:
-                for pt in np.linspace(np.array([self.trajectory["points"][closest_segment[0]]["x"], self.trajectory["points"][closest_segment[0]]["y"]]),
-                                      np.array([self.trajectory["points"][closest_segment[1]]["x"], self.trajectory["points"][closest_segment[1]]["y"]]),
-                                      50):
-                    tangent_pt = self.find_tangent_point(pt, circle_center, self.TURN_RADIUS, shell_pos)
-                    if tangent_pt.any() == None:
-                        continue
-                    in_collision = self.check_segment_collision(pt, tangent_pt)
-                    if not in_collision:
-                        self.get_logger().info("hi")
-                        self.publish_line(pt, tangent_pt)
+                deviation_pt_1 = self.plan_deviation(closest_segment, circle_center, shell_pos)
+                deviation_pt_2 = self.plan_deviation(list(reversed(closest_segment)), circle_center, shell_pos)
+
+            circle_pts = self.circle_to_trajectory(circle_center, self.TURN_RADIUS, deviation_pt_1, deviation_pt_2)
+            if circle_pts.any() == None:
+                self.get_logger().info("Circular path is in collision. Reverting to backup strategy.")
+
             stop_point = shell_pos + (closest_pt - shell_pos) / np.linalg.norm(closest_pt - shell_pos) * (self.ARM_LENGTH)
             
+
+        VisualizationTools.plot_line([point['x'] for point in self.trajectory['points']], [point['y'] for point in self.trajectory['points']], self.trajectory_pub)
 
         
 
