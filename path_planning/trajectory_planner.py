@@ -351,7 +351,9 @@ class PathPlan(Node):
         return False
     
 
-    def circle_to_trajectory(self, c, r, pt1, pt2, num_points=20):
+    def circle_to_trajectory(self, c, r, pt1, pt2, num_points=40):
+        num_points = int(num_points*np.linalg.norm(pt2-pt1))
+        
         # Calculate angles for pt1 and pt2
         theta1 = np.arctan2(pt1[1] - c[1], pt1[0] - c[0])
         theta2 = np.arctan2(pt2[1] - c[1], pt2[0] - c[0])
@@ -362,7 +364,10 @@ class PathPlan(Node):
 
         # Determine direction of the shortest path
         if (theta2 - theta1) % (2 * np.pi) > np.pi:
+            reverse_path = True
             theta1, theta2 = theta2, theta1
+        else:
+            reverse_path = False
 
         # Create an array of angles from theta1 to theta2
         if theta1 > theta2:
@@ -372,9 +377,14 @@ class PathPlan(Node):
         x_coords = c[0] + r * np.cos(angles)
         y_coords = c[1] + r * np.sin(angles)
 
+        if reverse_path:
+            x_coords = np.flip(x_coords)
+            y_coords = np.flip(y_coords)
+
         for i in range(len(x_coords)-1):
             in_collision = self.check_segment_collision(np.array([x_coords[i], y_coords[i]]), np.array([x_coords[i+1], y_coords[i+1]]))
             if in_collision:
+                self.get_logger().info("circle in collision")
                 return np.array([None]), np.array([None])
         
         for i in range(len(x_coords)):  # Visualize if no collision
@@ -384,7 +394,7 @@ class PathPlan(Node):
         return np.vstack((x_coords, y_coords))
     
 
-    def plan_deviation(self, segment, circle_center, shell_pos):
+    def plan_deviation(self, segment, circle_center, shell_pos, s_e):
         for pt in np.linspace(np.array([self.trajectory["points"][segment[0]]["x"], self.trajectory["points"][segment[0]]["y"]]),
                                 np.array([self.trajectory["points"][segment[1]]["x"], self.trajectory["points"][segment[1]]["y"]]),
                                 50):
@@ -394,10 +404,11 @@ class PathPlan(Node):
             in_collision = self.check_segment_collision(pt, tangent_pt)
             if not in_collision:
                 self.publish_line(pt, tangent_pt)
-                self.publish_point(tangent_pt, self.deviation_point_pub, 0.0, 0.0, 1.0, size=0.1)
+                if s_e == "s":
+                    self.publish_point(tangent_pt, self.deviation_point_pub, 0.0, 1.0, 1.0, size=0.1)
+                if s_e == "e":
+                    self.publish_point(tangent_pt, self.deviation_point_pub, 1.0, 0.0, 1.0, size=0.1)
                 return tangent_pt  # once we find a non-colliding tangent point, return it
-            else:
-                self.get_logger().info("collision")
 
 
     def plan_path(self, shell_point, map):
@@ -460,12 +471,12 @@ class PathPlan(Node):
             # shell point is at a "corner", between two line segments of the nominal trajectory
             if self.trajectory["points"][closest_idx]["x"] == closest_pt[0] and self.trajectory["points"][closest_idx]["y"] == closest_pt[1]:
                 if closest_idx > 0:
-                    deviation_pt_1 = self.plan_deviation([closest_idx-1, closest_idx], circle_center, shell_pos)
+                    deviation_pt_1 = self.plan_deviation([closest_idx-1, closest_idx], circle_center, shell_pos, "s")
                 if closest_idx < len(self.trajectory["points"])-1:
-                    deviation_pt_2 = self.plan_deviation([closest_idx+1, closest_idx], circle_center, shell_pos)
+                    deviation_pt_2 = self.plan_deviation([closest_idx+1, closest_idx], circle_center, shell_pos, "e")
             else:
-                deviation_pt_1 = self.plan_deviation(closest_segment, circle_center, shell_pos)
-                deviation_pt_2 = self.plan_deviation(list(reversed(closest_segment)), circle_center, shell_pos)
+                deviation_pt_1 = self.plan_deviation(closest_segment, circle_center, shell_pos, "s")
+                deviation_pt_2 = self.plan_deviation(list(reversed(closest_segment)), circle_center, shell_pos, "e")
 
             circle_pts = self.circle_to_trajectory(circle_center, self.TURN_RADIUS, deviation_pt_1, deviation_pt_2)
             if circle_pts.any() == None:
