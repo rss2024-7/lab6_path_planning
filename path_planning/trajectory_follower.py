@@ -61,6 +61,11 @@ class PurePursuit(Node):
 
         self.max_steer = 0.34
 
+        self.initialized_traj = False
+
+        self.get_logger().info("=============================FOLLOWER READY=============================")
+
+
     def point_callback(self, point_msg):
         self.get_logger().info("adding point")
         self.trajectory.addPoint((point_msg.point.x, point_msg.point.y))
@@ -70,7 +75,8 @@ class PurePursuit(Node):
     def pose_callback(self, odometry_msg):
 
         # no trajectory to follow
-        if not self.trajectory.points: return
+        if not self.initialized_traj:
+            return
 
         # retrieve odometry data
         car_pos_x = odometry_msg.pose.pose.position.x
@@ -148,7 +154,7 @@ class PurePursuit(Node):
 
         Args:
             x (1D np array): x values of trajectory
-            y (1D np array): y values of trajectorffy
+            y (1D np array): y values of trajectory
             car_x (float): x position of car
             car_y (float): y position of car
         Returns:

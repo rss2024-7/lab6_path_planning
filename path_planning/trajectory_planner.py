@@ -127,7 +127,7 @@ class PathPlan(Node):
                                     [np.sin(theta), np.cos(theta), y],
                                     [0,0,1]])
 
-        self.get_logger().info("=============================READY=============================")
+        self.get_logger().info("=============================PLANNER READY=============================")
 
 
     def map_cb(self, msg):
@@ -399,7 +399,6 @@ class PathPlan(Node):
             time.sleep(0.02)
             self.publish_point(np.array([x_coords[i], y_coords[i]]), self.deviation_point_pub, 0.0, 0.0, 1.0, size=0.05)
 
-        self.get_logger().info(f"np.hstack((x_coords, y_coords)) {np.hstack((x_coords, y_coords))}")
         return np.vstack((x_coords, y_coords)).T, closest_pt_to_shell_idx
     
 
@@ -500,38 +499,19 @@ class PathPlan(Node):
 
         VisualizationTools.plot_line([point['x'] for point in self.trajectory[self.traj_idx]["points"]], [point['y'] for point in self.trajectory[self.traj_idx]["points"]], self.trajectory_pub)
 
+        # Publish PoseArray
+        traj_pose_array = PoseArray()
+        for point in self.trajectory[self.traj_idx]["points"]:
+            pose = Pose()
+            pose.position.x = point['x']
+            pose.position.y = point['y']
+            pose.position.z = 0.0  # Assuming z is 0 as it's not provided in the path
+            traj_pose_array.poses.append(pose)
 
-        
+        # set frame so visualization works
+        traj_pose_array.header.frame_id = "/map"  # replace with your frame id
 
-        # traj_pose_array = PoseArray()
-        # length_sum = 0.0
-        # previous_point = None
-        # for t in np.linspace(traj.start_time(), traj.end_time(), 100):
-        #     self.get_logger().info(f"{traj.value(t)}")
-
-        #     pose = Pose()
-        #     pose.position.x = float(traj.value(t)[0,0])
-        #     pose.position.y = float(traj.value(t)[1,0])
-        #     pose.position.z = 0.0  # Assuming z is 0 for 2D coordinates
-        #     pose.orientation.w = 1.0  # Neutral orientation
-        #     traj_pose_array.poses.append(pose)
-
-        #     current_point = np.array([pose.position.x, pose.position.y])
-
-        #     # Calculate distance from the previous point if it exists
-        #     if previous_point is not None:
-        #         distance = np.linalg.norm(current_point - previous_point)
-        #         length_sum += distance
-
-        #     # Update previous_point to the current point for the next iteration
-        #     previous_point = current_point
-
-        # # set frame so visualization works
-        # traj_pose_array.header.frame_id = "/map"  # replace with your frame id
-
-        # self.traj_pub.publish(traj_pose_array)
-
-        # self.get_logger().info(f"Total length of the trajectory: {length_sum}")
+        self.traj_pub.publish(traj_pose_array)
 
 
 def main(args=None):
