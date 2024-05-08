@@ -383,12 +383,12 @@ class PathPlan(Node):
             y_coords = np.flip(y_coords)
 
 
-        closest_pt_to_shell = None
+        closest_pt_to_shell_idx = None
         closest_pt_to_shell_dist = np.inf
-        for i in range(len(x_coords)-1):
+        for i in range(np.shape(x_coords)[0]):
             if np.linalg.norm(np.array([x_coords[i], y_coords[i]]) - shell_pos) < closest_pt_to_shell_dist:
                 closest_pt_to_shell_dist = np.linalg.norm(np.array([x_coords[i], y_coords[i]]) - shell_pos)
-                closest_pt_to_shell = np.array([x_coords[i], y_coords[i]])
+                closest_pt_to_shell_idx = i
 
             # in_collision = self.check_segment_collision(np.array([x_coords[i], y_coords[i]]), np.array([x_coords[i+1], y_coords[i+1]]))
             # if in_collision:
@@ -397,9 +397,10 @@ class PathPlan(Node):
         
         for i in range(len(x_coords)):  # Visualize if no collision
             time.sleep(0.02)
-            self.publish_point(np.array([x_coords[i], y_coords[i]]), self.deviation_point_pub, 0.0, 0.0, 1.0, size=0.1)
+            self.publish_point(np.array([x_coords[i], y_coords[i]]), self.deviation_point_pub, 0.0, 0.0, 1.0, size=0.05)
 
-        return np.vstack((x_coords, y_coords)), closest_pt_to_shell
+        self.get_logger().info(f"np.hstack((x_coords, y_coords)) {np.hstack((x_coords, y_coords))}")
+        return np.vstack((x_coords, y_coords)).T, closest_pt_to_shell_idx
     
 
     def plan_deviation(self, path_pt_idx, closest_pt, circle_center, shell_pos, s_e):
@@ -472,22 +473,30 @@ class PathPlan(Node):
         self.publish_circle(circle_center, self.TURN_RADIUS)
 
         if np.sqrt(closest_dist_sq) < self.ARM_LENGTH:
-            closest_circle_pt_to_shell = closest_pt
+            circle_pts = [closest_pt]
+            closest_circle_pt_to_shell_idx = 0
         else:
             # shell point is at a "corner", between two line segments of the nominal trajectory
             if np.linalg.norm(circle_center - np.array([self.trajectory[self.traj_idx]["points"][closest_idx]["x"], self.trajectory[self.traj_idx]["points"][closest_idx]["y"]])) <= self.TURN_RADIUS:
-            # if self.trajectory[self.traj_idx]["points"][closest_idx]["x"] == closest_pt[0] and self.trajectory[self.traj_idx]["points"][closest_idx]["y"] == closest_pt[1]:
                 if closest_idx > 0:
                     deviation_pt_1 = self.plan_deviation(closest_idx-1, closest_pt, circle_center, shell_pos, "s")
                 if closest_idx < len(self.trajectory[self.traj_idx]["points"])-1:
                     deviation_pt_2 = self.plan_deviation(closest_idx+1, closest_pt, circle_center, shell_pos, "e")
+                last_traj_idx_to_follow = closest_idx-1
             else:
                 deviation_pt_1 = self.plan_deviation(closest_segment[0], closest_pt, circle_center, shell_pos, "s")
                 deviation_pt_2 = self.plan_deviation(closest_segment[1], closest_pt, circle_center, shell_pos, "e")
+                last_traj_idx_to_follow = closest_segment[0]
 
-            circle_pts, closest_circle_pt_to_shell = self.circle_to_trajectory(circle_center, self.TURN_RADIUS, deviation_pt_1, deviation_pt_2, shell_pos)
+            circle_pts, closest_circle_pt_to_shell_idx = self.circle_to_trajectory(circle_center, self.TURN_RADIUS, deviation_pt_1, deviation_pt_2, shell_pos)
             if circle_pts.any() == None:
                 self.get_logger().info("Circular path is in collision. Reverting to backup strategy.")
+
+        self.get_logger().info(f"closest_circle_pt_to_shell_idx: {closest_circle_pt_to_shell_idx}")
+        self.trajectory[self.traj_idx]["points"] = self.trajectory[self.traj_idx]["points"][:last_traj_idx_to_follow+1]  # remove points beyond
+        self.trajectory[self.traj_idx]["points"] += [{"x": p[0], "y": p[1]} for p in circle_pts[:closest_circle_pt_to_shell_idx+1]]  # add points in circle deviation
+
+        self.get_logger().info(f" self.trajectory[self.traj_idx]: { self.trajectory[self.traj_idx]}")
 
         VisualizationTools.plot_line([point['x'] for point in self.trajectory[self.traj_idx]["points"]], [point['y'] for point in self.trajectory[self.traj_idx]["points"]], self.trajectory_pub)
 
