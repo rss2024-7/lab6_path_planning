@@ -116,7 +116,8 @@ class PathPlan(Node):
         self.current_pose = None
         self.goal_pose = None
         self.map = None
-        self.trajectory = nominal_path  # initialize trajectory to nominal
+        self.trajectory = [nominal_path]  # initialize trajectory to nominal
+        self.traj_idx = 0  # between 0 and 3, depending on whether we're going for shell 1, 2, 3, or returning to start.
 
         x = 25.900000
         y = 48.50000
@@ -351,7 +352,7 @@ class PathPlan(Node):
         return False
     
 
-    def circle_to_trajectory(self, c, r, pt1, pt2, num_points=40):
+    def circle_to_trajectory(self, c, r, pt1, pt2, shell_pos, num_points=40):
         num_points = int(num_points*np.linalg.norm(pt2-pt1))
         
         # Calculate angles for pt1 and pt2
@@ -381,21 +382,28 @@ class PathPlan(Node):
             x_coords = np.flip(x_coords)
             y_coords = np.flip(y_coords)
 
+
+        closest_pt_to_shell = None
+        closest_pt_to_shell_dist = np.inf
         for i in range(len(x_coords)-1):
-            in_collision = self.check_segment_collision(np.array([x_coords[i], y_coords[i]]), np.array([x_coords[i+1], y_coords[i+1]]))
-            if in_collision:
-                self.get_logger().info("circle in collision")
-                return np.array([None]), np.array([None])
+            if np.linalg.norm(np.array([x_coords[i], y_coords[i]]) - shell_pos) < closest_pt_to_shell_dist:
+                closest_pt_to_shell_dist = np.linalg.norm(np.array([x_coords[i], y_coords[i]]) - shell_pos)
+                closest_pt_to_shell = np.array([x_coords[i], y_coords[i]])
+
+            # in_collision = self.check_segment_collision(np.array([x_coords[i], y_coords[i]]), np.array([x_coords[i+1], y_coords[i+1]]))
+            # if in_collision:
+            #     self.get_logger().info("circle in collision")
+            #     return np.array([None]), np.array([None])
         
         for i in range(len(x_coords)):  # Visualize if no collision
             time.sleep(0.02)
             self.publish_point(np.array([x_coords[i], y_coords[i]]), self.deviation_point_pub, 0.0, 0.0, 1.0, size=0.1)
 
-        return np.vstack((x_coords, y_coords))
+        return np.vstack((x_coords, y_coords)), closest_pt_to_shell
     
 
     def plan_deviation(self, path_pt_idx, closest_pt, circle_center, shell_pos, s_e):
-        for pt in np.linspace(np.array([self.trajectory["points"][path_pt_idx]["x"], self.trajectory["points"][path_pt_idx]["y"]]), closest_pt, 50):
+        for pt in np.linspace(np.array([self.trajectory[self.traj_idx]["points"][path_pt_idx]["x"], self.trajectory[self.traj_idx]["points"][path_pt_idx]["y"]]), closest_pt, 50):
             tangent_pt = self.find_tangent_point(pt, circle_center, self.TURN_RADIUS, shell_pos)
             if tangent_pt.any() == None:
                 continue
@@ -421,8 +429,8 @@ class PathPlan(Node):
         # First, find closest endpoint to the designated point
         closest_dist_sq = np.inf
         closest_idx = 0
-        for i in range(len(self.trajectory["points"])):
-            new_dist_sq = (self.trajectory["points"][i]["x"] - shell_pos[0])**2 + (self.trajectory["points"][i]["y"] - shell_pos[1])**2
+        for i in range(len(self.trajectory[self.traj_idx]["points"])):
+            new_dist_sq = (self.trajectory[self.traj_idx]["points"][i]["x"] - shell_pos[0])**2 + (self.trajectory[self.traj_idx]["points"][i]["y"] - shell_pos[1])**2
             if new_dist_sq < closest_dist_sq:
                 closest_dist_sq = new_dist_sq
                 closest_idx = i
@@ -433,11 +441,11 @@ class PathPlan(Node):
         closest_pt = None
         closest_segment = []  # will contain two indices of the trajectory that contain the closest point
         for i in range(closest_idx-1, closest_idx+1):
-            if i < 0 or i >= len(self.trajectory["points"])-1:
+            if i < 0 or i >= len(self.trajectory[self.traj_idx]["points"])-1:
                 continue
 
-            start = np.array([self.trajectory["points"][i]["x"], self.trajectory["points"][i]["y"]])
-            end = np.array([self.trajectory["points"][i+1]["x"], self.trajectory["points"][i+1]["y"]])
+            start = np.array([self.trajectory[self.traj_idx]["points"][i]["x"], self.trajectory[self.traj_idx]["points"][i]["y"]])
+            end = np.array([self.trajectory[self.traj_idx]["points"][i+1]["x"], self.trajectory[self.traj_idx]["points"][i+1]["y"]])
 
             start_to_point = shell_point - start
             start_to_end = end - start
@@ -464,26 +472,25 @@ class PathPlan(Node):
         self.publish_circle(circle_center, self.TURN_RADIUS)
 
         if np.sqrt(closest_dist_sq) < self.ARM_LENGTH:
-            stop_point = closest_pt
+            closest_circle_pt_to_shell = closest_pt
         else:
             # shell point is at a "corner", between two line segments of the nominal trajectory
-            if self.trajectory["points"][closest_idx]["x"] == closest_pt[0] and self.trajectory["points"][closest_idx]["y"] == closest_pt[1]:
+            if np.linalg.norm(circle_center - np.array([self.trajectory[self.traj_idx]["points"][closest_idx]["x"], self.trajectory[self.traj_idx]["points"][closest_idx]["y"]])) <= self.TURN_RADIUS:
+            # if self.trajectory[self.traj_idx]["points"][closest_idx]["x"] == closest_pt[0] and self.trajectory[self.traj_idx]["points"][closest_idx]["y"] == closest_pt[1]:
                 if closest_idx > 0:
                     deviation_pt_1 = self.plan_deviation(closest_idx-1, closest_pt, circle_center, shell_pos, "s")
-                if closest_idx < len(self.trajectory["points"])-1:
+                if closest_idx < len(self.trajectory[self.traj_idx]["points"])-1:
                     deviation_pt_2 = self.plan_deviation(closest_idx+1, closest_pt, circle_center, shell_pos, "e")
             else:
                 deviation_pt_1 = self.plan_deviation(closest_segment[0], closest_pt, circle_center, shell_pos, "s")
                 deviation_pt_2 = self.plan_deviation(closest_segment[1], closest_pt, circle_center, shell_pos, "e")
 
-            circle_pts = self.circle_to_trajectory(circle_center, self.TURN_RADIUS, deviation_pt_1, deviation_pt_2)
+            circle_pts, closest_circle_pt_to_shell = self.circle_to_trajectory(circle_center, self.TURN_RADIUS, deviation_pt_1, deviation_pt_2, shell_pos)
             if circle_pts.any() == None:
                 self.get_logger().info("Circular path is in collision. Reverting to backup strategy.")
 
-            stop_point = shell_pos + (closest_pt - shell_pos) / np.linalg.norm(closest_pt - shell_pos) * (self.ARM_LENGTH)
-            
+        VisualizationTools.plot_line([point['x'] for point in self.trajectory[self.traj_idx]["points"]], [point['y'] for point in self.trajectory[self.traj_idx]["points"]], self.trajectory_pub)
 
-        VisualizationTools.plot_line([point['x'] for point in self.trajectory['points']], [point['y'] for point in self.trajectory['points']], self.trajectory_pub)
 
         
 
