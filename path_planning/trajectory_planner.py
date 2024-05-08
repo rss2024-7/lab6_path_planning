@@ -394,10 +394,8 @@ class PathPlan(Node):
         return np.vstack((x_coords, y_coords))
     
 
-    def plan_deviation(self, segment, circle_center, shell_pos, s_e):
-        for pt in np.linspace(np.array([self.trajectory["points"][segment[0]]["x"], self.trajectory["points"][segment[0]]["y"]]),
-                                np.array([self.trajectory["points"][segment[1]]["x"], self.trajectory["points"][segment[1]]["y"]]),
-                                50):
+    def plan_deviation(self, path_pt_idx, closest_pt, circle_center, shell_pos, s_e):
+        for pt in np.linspace(np.array([self.trajectory["points"][path_pt_idx]["x"], self.trajectory["points"][path_pt_idx]["y"]]), closest_pt, 50):
             tangent_pt = self.find_tangent_point(pt, circle_center, self.TURN_RADIUS, shell_pos)
             if tangent_pt.any() == None:
                 continue
@@ -471,12 +469,12 @@ class PathPlan(Node):
             # shell point is at a "corner", between two line segments of the nominal trajectory
             if self.trajectory["points"][closest_idx]["x"] == closest_pt[0] and self.trajectory["points"][closest_idx]["y"] == closest_pt[1]:
                 if closest_idx > 0:
-                    deviation_pt_1 = self.plan_deviation([closest_idx-1, closest_idx], circle_center, shell_pos, "s")
+                    deviation_pt_1 = self.plan_deviation(closest_idx-1, closest_pt, circle_center, shell_pos, "s")
                 if closest_idx < len(self.trajectory["points"])-1:
-                    deviation_pt_2 = self.plan_deviation([closest_idx+1, closest_idx], circle_center, shell_pos, "e")
+                    deviation_pt_2 = self.plan_deviation(closest_idx+1, closest_pt, circle_center, shell_pos, "e")
             else:
-                deviation_pt_1 = self.plan_deviation(closest_segment, circle_center, shell_pos, "s")
-                deviation_pt_2 = self.plan_deviation(list(reversed(closest_segment)), circle_center, shell_pos, "e")
+                deviation_pt_1 = self.plan_deviation(closest_segment[0], closest_pt, circle_center, shell_pos, "s")
+                deviation_pt_2 = self.plan_deviation(closest_segment[1], closest_pt, circle_center, shell_pos, "e")
 
             circle_pts = self.circle_to_trajectory(circle_center, self.TURN_RADIUS, deviation_pt_1, deviation_pt_2)
             if circle_pts.any() == None:
