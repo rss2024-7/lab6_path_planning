@@ -2,10 +2,15 @@ from geometry_msgs.msg import Point
 from visualization_msgs.msg import Marker
 from builtin_interfaces.msg import Duration
 
+
+
 class VisualizationTools:
 
-    @staticmethod
-    def plot_line(x, y, publisher, color = (1., 1., 1.), frame = "/base_link"):
+    def __init__(self):
+        self.current_id = 0
+
+    # @staticmethod
+    def plot_line(self, x, y, publisher, color = (1., 1., 1.), frame = "/base_link", increment_id=False, scale=0.25):
         """
         Publishes the points (x, y) to publisher
         so they can be visualized in rviz as
@@ -23,10 +28,11 @@ class VisualizationTools:
         line_strip = Marker()
         line_strip.type = Marker.LINE_STRIP
         line_strip.header.frame_id = frame
+        line_strip.id = self.current_id
 
         # Set the size and color
-        line_strip.scale.x = 0.1
-        line_strip.scale.y = 0.1
+        line_strip.scale.x = scale
+        line_strip.scale.y = scale
         line_strip.color.a = 1.
         line_strip.color.r = color[0]
         line_strip.color.g = color[1]
@@ -41,3 +47,6 @@ class VisualizationTools:
 
         # Publish the line
         publisher.publish(line_strip)
+
+        if increment_id:
+            self.current_id += 1

@@ -1,0 +1,24 @@
+[12.557s] Invoking command in '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning': PYTHONPATH=/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/prefix_override:/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --editable --build-directory /home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/build --no-deps install_data
+[17.624s] running develop
+[18.684s] running egg_info
+[18.686s] writing path_planning.egg-info/PKG-INFO
+[18.691s] writing dependency_links to path_planning.egg-info/dependency_links.txt
+[18.696s] writing entry points to path_planning.egg-info/entry_points.txt
+[18.699s] writing requirements to path_planning.egg-info/requires.txt
+[18.703s] writing top-level names to path_planning.egg-info/top_level.txt
+[18.999s] reading manifest file 'path_planning.egg-info/SOURCES.txt'
+[19.216s] writing manifest file 'path_planning.egg-info/SOURCES.txt'
+[19.659s] running build_ext
+[19.666s] Creating /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages/path-planning.egg-link (link to .)
+[19.690s] Installing trajectory_builder script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning
+[19.710s] Installing trajectory_follower script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning
+[19.731s] Installing trajectory_loader script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning
+[19.750s] Installing trajectory_planner script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning
+[19.776s] 
+[19.777s] Installed /home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning
+[19.783s] running install_data
+[20.199s] creating /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/maps
+[20.210s] copying maps/image.png -> /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/maps
+[20.245s] copying maps/stata_basement.png -> /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/maps
+[20.279s] copying maps/stata_basement.yaml -> /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/maps
+[20.340s] Invoked command in '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning' returned '0': PYTHONPATH=/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/prefix_override:/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 setup.py develop --editable --build-directory /home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/build --no-deps install_data

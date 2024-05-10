@@ -1,0 +1,240 @@
+[0.000000] (-) TimerEvent: {}
+[0.000728] (path_planning) JobQueued: {'identifier': 'path_planning', 'dependencies': OrderedDict()}
+[0.001022] (path_planning) JobStarted: {'identifier': 'path_planning'}
+[0.096179] (-) TimerEvent: {}
+[0.197629] (-) TimerEvent: {}
+[0.298211] (-) TimerEvent: {}
+[0.398832] (-) TimerEvent: {}
+[0.499876] (-) TimerEvent: {}
+[0.600443] (-) TimerEvent: {}
+[0.701146] (-) TimerEvent: {}
+[0.801694] (-) TimerEvent: {}
+[0.902307] (-) TimerEvent: {}
+[1.003213] (-) TimerEvent: {}
+[1.104466] (-) TimerEvent: {}
+[1.205358] (-) TimerEvent: {}
+[1.306020] (-) TimerEvent: {}
+[1.406525] (-) TimerEvent: {}
+[1.508895] (-) TimerEvent: {}
+[1.610027] (-) TimerEvent: {}
+[1.710906] (-) TimerEvent: {}
+[1.811656] (-) TimerEvent: {}
+[1.912826] (-) TimerEvent: {}
+[2.013580] (-) TimerEvent: {}
+[2.114349] (-) TimerEvent: {}
+[2.215024] (-) TimerEvent: {}
+[2.316006] (-) TimerEvent: {}
+[2.416872] (-) TimerEvent: {}
+[2.517380] (-) TimerEvent: {}
+[2.617932] (-) TimerEvent: {}
+[2.718588] (-) TimerEvent: {}
+[2.819163] (-) TimerEvent: {}
+[2.919740] (-) TimerEvent: {}
+[3.020225] (-) TimerEvent: {}
+[3.120698] (-) TimerEvent: {}
+[3.221233] (-) TimerEvent: {}
+[3.322245] (-) TimerEvent: {}
+[3.423059] (-) TimerEvent: {}
+[3.523695] (-) TimerEvent: {}
+[3.624343] (-) TimerEvent: {}
+[3.725117] (-) TimerEvent: {}
+[3.826579] (-) TimerEvent: {}
+[3.927397] (-) TimerEvent: {}
+[4.028024] (-) TimerEvent: {}
+[4.128869] (-) TimerEvent: {}
+[4.229364] (-) TimerEvent: {}
+[4.330005] (-) TimerEvent: {}
+[4.430700] (-) TimerEvent: {}
+[4.531283] (-) TimerEvent: {}
+[4.631957] (-) TimerEvent: {}
+[4.732444] (-) TimerEvent: {}
+[4.832938] (-) TimerEvent: {}
+[4.933464] (-) TimerEvent: {}
+[5.034069] (-) TimerEvent: {}
+[5.134778] (-) TimerEvent: {}
+[5.235395] (-) TimerEvent: {}
+[5.336026] (-) TimerEvent: {}
+[5.436622] (-) TimerEvent: {}
+[5.537237] (-) TimerEvent: {}
+[5.638031] (-) TimerEvent: {}
+[5.738764] (-) TimerEvent: {}
+[5.839437] (-) TimerEvent: {}
+[5.940457] (-) TimerEvent: {}
+[6.041016] (-) TimerEvent: {}
+[6.141753] (-) TimerEvent: {}
+[6.242318] (-) TimerEvent: {}
+[6.342918] (-) TimerEvent: {}
+[6.443635] (-) TimerEvent: {}
+[6.544793] (-) TimerEvent: {}
+[6.645639] (-) TimerEvent: {}
+[6.746563] (-) TimerEvent: {}
+[6.847282] (-) TimerEvent: {}
+[6.947806] (-) TimerEvent: {}
+[7.048383] (-) TimerEvent: {}
+[7.148961] (-) TimerEvent: {}
+[7.249536] (-) TimerEvent: {}
+[7.350156] (-) TimerEvent: {}
+[7.450981] (-) TimerEvent: {}
+[7.551697] (-) TimerEvent: {}
+[7.652440] (-) TimerEvent: {}
+[7.752972] (-) TimerEvent: {}
+[7.853959] (-) TimerEvent: {}
+[7.954544] (-) TimerEvent: {}
+[8.055215] (-) TimerEvent: {}
+[8.156003] (-) TimerEvent: {}
+[8.256732] (-) TimerEvent: {}
+[8.357393] (-) TimerEvent: {}
+[8.458071] (-) TimerEvent: {}
+[8.559032] (-) TimerEvent: {}
+[8.660130] (-) TimerEvent: {}
+[8.760887] (-) TimerEvent: {}
+[8.861661] (-) TimerEvent: {}
+[8.962415] (-) TimerEvent: {}
+[9.063124] (-) TimerEvent: {}
+[9.163923] (-) TimerEvent: {}
+[9.264487] (-) TimerEvent: {}
+[9.365031] (-) TimerEvent: {}
+[9.465659] (-) TimerEvent: {}
+[9.566361] (-) TimerEvent: {}
+[9.667423] (-) TimerEvent: {}
+[9.768383] (-) TimerEvent: {}
+[9.869596] (-) TimerEvent: {}
+[9.970370] (-) TimerEvent: {}
+[10.071120] (-) TimerEvent: {}
+[10.171939] (-) TimerEvent: {}
+[10.272539] (-) TimerEvent: {}
+[10.373161] (-) TimerEvent: {}
+[10.473675] (-) TimerEvent: {}
+[10.574292] (-) TimerEvent: {}
+[10.674901] (-) TimerEvent: {}
+[10.775591] (-) TimerEvent: {}
+[10.876725] (-) TimerEvent: {}
+[10.977658] (-) TimerEvent: {}
+[11.078130] (-) TimerEvent: {}
+[11.178672] (-) TimerEvent: {}
+[11.279211] (-) TimerEvent: {}
+[11.379897] (-) TimerEvent: {}
+[11.480872] (-) TimerEvent: {}
+[11.582432] (-) TimerEvent: {}
+[11.683451] (-) TimerEvent: {}
+[11.784101] (-) TimerEvent: {}
+[11.884677] (-) TimerEvent: {}
+[11.985268] (-) TimerEvent: {}
+[12.085924] (-) TimerEvent: {}
+[12.186547] (-) TimerEvent: {}
+[12.287263] (-) TimerEvent: {}
+[12.387919] (-) TimerEvent: {}
+[12.488507] (-) TimerEvent: {}
+[12.547750] (path_planning) Command: {'cmd': ['/usr/bin/python3', 'setup.py', 'develop', '--editable', '--build-directory', '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/build', '--no-deps', 'install_data'], 'cwd': '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning', 'env': {'PYTHONIOENCODING': 'utf-8', 'HOSTNAME': 'b3291a4b71a5', 'SSH_AGENT_PID': '1047', 'GIT_ASKPASS': '/home/racecar/.vscode-server/bin/8b3775030ed1a69b13e4f4c628c612102e30a681/extensions/git/dist/askpass.sh', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/home/racecar/racecar_ws/install/vs_msgs/lib:/home/racecar/racecar_ws/install/custom_msgs/lib:/opt/ros/foxy/opt/yaml_cpp_vendor/lib:/opt/ros/foxy/opt/rviz_ogre_vendor/lib:/opt/ros/foxy/lib/x86_64-linux-gnu:/opt/ros/foxy/lib', 'BROWSER': '/home/racecar/.vscode-server/bin/8b3775030ed1a69b13e4f4c628c612102e30a681/bin/helpers/browser.sh', 'HOME': '/home/racecar', 'OLDPWD': '/home/racecar/racecar_ws/src', 'TERM_PROGRAM_VERSION': '1.85.2', 'VSCODE_IPC_HOOK_CLI': '/tmp/vscode-ipc-00c9d186-016f-4b79-aa43-1e55be71119b.sock', 'ROS_PYTHON_VERSION': '3', 'VSCODE_GIT_ASKPASS_MAIN': '/home/racecar/.vscode-server/bin/8b3775030ed1a69b13e4f4c628c612102e30a681/extensions/git/dist/askpass-main.js', 'VSCODE_GIT_ASKPASS_NODE': '/home/racecar/.vscode-server/bin/8b3775030ed1a69b13e4f4c628c612102e30a681/node', 'COLORTERM': 'truecolor', 'REMOTE_CONTAINERS': 'true', 'COLCON_PREFIX_PATH': '/home/racecar/racecar_ws/install:/home/sim_ws/install', 'ROS_DISTRO': 'foxy', 'REMOTE_CONTAINERS_IPC': '/tmp/vscode-remote-containers-ipc-7bdb1ae8-db39-4273-bbbb-2acd27303490.sock', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'TERM': 'xterm-256color', 'ROS_LOCALHOST_ONLY': '0', 'PATH': '/opt/ros/foxy/bin:/home/racecar/.vscode-server/bin/8b3775030ed1a69b13e4f4c628c612102e30a681/bin/remote-cli:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', 'DISPLAY': '172.18.192.1:0.0', 'LANG': 'en_US.UTF-8', 'VSCODE_GIT_IPC_HANDLE': '/tmp/vscode-git-5d6cfd60bd.sock', 'TERM_PROGRAM': 'vscode', 'SSH_AUTH_SOCK': '/tmp/ssh-uCvjgNpxq6I0/agent.1046', 'AMENT_PREFIX_PATH': '/home/sim_ws/install/racecar_simulator:/home/racecar/racecar_ws/install/wall_follower:/home/racecar/racecar_ws/install/vs_msgs:/home/racecar/racecar_ws/install/visual_servoing:/home/racecar/racecar_ws/install/safety_controller:/home/racecar/racecar_ws/install/ros_exercises:/home/racecar/racecar_ws/install/path_planning:/home/racecar/racecar_ws/install/localization:/home/racecar/racecar_ws/install/final_challenge_city:/opt/ros/foxy', 'SHELL': '/bin/bash', 'SIM_WS': '/home/sim_ws', 'VSCODE_GIT_ASKPASS_EXTRA_ARGS': '', 'PWD': '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning', 'PYTHONPATH': '/home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning/prefix_override:/home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages:/home/racecar/racecar_ws/build/wall_follower:/home/racecar/racecar_ws/install/wall_follower/lib/python3.8/site-packages:/home/racecar/racecar_ws/install/vs_msgs/lib/python3.8/site-packages:/home/racecar/racecar_ws/build/visual_servoing:/home/racecar/racecar_ws/install/visual_servoing/lib/python3.8/site-packages:/home/racecar/racecar_ws/build/safety_controller:/home/racecar/racecar_ws/install/safety_controller/lib/python3.8/site-packages:/home/racecar/racecar_ws/build/ros_exercises:/home/racecar/racecar_ws/install/ros_exercises/lib/python3.8/site-packages:/home/racecar/racecar_ws/install/path_planning/lib/python3.8/site-packages:/home/racecar/racecar_ws/build/localization:/home/racecar/racecar_ws/install/localization/lib/python3.8/site-packages:/home/racecar/racecar_ws/install/final_challenge_city/lib/python3.8/site-packages:/home/racecar/racecar_ws/install/custom_msgs/lib/python3.8/site-packages:/opt/ros/foxy/lib/python3.8/site-packages', 'NO_VNC_VERSION': '1.4.0', 'COLCON': '1', 'CMAKE_PREFIX_PATH': '/home/sim_ws/install/racecar_simulator:/home/racecar/racecar_ws/install/vs_msgs:/home/racecar/racecar_ws/install/custom_msgs'}, 'shell': False}
+[12.588715] (-) TimerEvent: {}
+[12.689665] (-) TimerEvent: {}
+[12.790551] (-) TimerEvent: {}
+[12.891220] (-) TimerEvent: {}
+[12.991810] (-) TimerEvent: {}
+[13.092449] (-) TimerEvent: {}
+[13.193080] (-) TimerEvent: {}
+[13.293724] (-) TimerEvent: {}
+[13.394371] (-) TimerEvent: {}
+[13.495171] (-) TimerEvent: {}
+[13.596235] (-) TimerEvent: {}
+[13.696946] (-) TimerEvent: {}
+[13.797851] (-) TimerEvent: {}
+[13.898551] (-) TimerEvent: {}
+[13.999299] (-) TimerEvent: {}
+[14.100003] (-) TimerEvent: {}
+[14.200779] (-) TimerEvent: {}
+[14.301748] (-) TimerEvent: {}
+[14.402577] (-) TimerEvent: {}
+[14.503171] (-) TimerEvent: {}
+[14.603855] (-) TimerEvent: {}
+[14.704468] (-) TimerEvent: {}
+[14.805173] (-) TimerEvent: {}
+[14.905965] (-) TimerEvent: {}
+[15.006516] (-) TimerEvent: {}
+[15.107070] (-) TimerEvent: {}
+[15.207671] (-) TimerEvent: {}
+[15.308209] (-) TimerEvent: {}
+[15.408771] (-) TimerEvent: {}
+[15.509313] (-) TimerEvent: {}
+[15.609962] (-) TimerEvent: {}
+[15.710507] (-) TimerEvent: {}
+[15.811189] (-) TimerEvent: {}
+[15.911817] (-) TimerEvent: {}
+[16.012340] (-) TimerEvent: {}
+[16.112972] (-) TimerEvent: {}
+[16.213636] (-) TimerEvent: {}
+[16.314274] (-) TimerEvent: {}
+[16.415057] (-) TimerEvent: {}
+[16.515624] (-) TimerEvent: {}
+[16.616428] (-) TimerEvent: {}
+[16.717010] (-) TimerEvent: {}
+[16.817626] (-) TimerEvent: {}
+[16.918393] (-) TimerEvent: {}
+[17.019081] (-) TimerEvent: {}
+[17.119940] (-) TimerEvent: {}
+[17.220655] (-) TimerEvent: {}
+[17.321426] (-) TimerEvent: {}
+[17.421951] (-) TimerEvent: {}
+[17.522637] (-) TimerEvent: {}
+[17.623653] (path_planning) StdoutLine: {'line': b'running develop\n'}
+[17.625811] (-) TimerEvent: {}
+[17.726425] (-) TimerEvent: {}
+[17.827371] (-) TimerEvent: {}
+[17.928161] (-) TimerEvent: {}
+[18.028782] (-) TimerEvent: {}
+[18.129483] (-) TimerEvent: {}
+[18.230039] (-) TimerEvent: {}
+[18.330625] (-) TimerEvent: {}
+[18.431303] (-) TimerEvent: {}
+[18.532103] (-) TimerEvent: {}
+[18.632891] (-) TimerEvent: {}
+[18.684780] (path_planning) StdoutLine: {'line': b'running egg_info\n'}
+[18.686496] (path_planning) StdoutLine: {'line': b'writing path_planning.egg-info/PKG-INFO\n'}
+[18.691546] (path_planning) StdoutLine: {'line': b'writing dependency_links to path_planning.egg-info/dependency_links.txt\n'}
+[18.696273] (path_planning) StdoutLine: {'line': b'writing entry points to path_planning.egg-info/entry_points.txt\n'}
+[18.700121] (path_planning) StdoutLine: {'line': b'writing requirements to path_planning.egg-info/requires.txt\n'}
+[18.703545] (path_planning) StdoutLine: {'line': b'writing top-level names to path_planning.egg-info/top_level.txt\n'}
+[18.733045] (-) TimerEvent: {}
+[18.833627] (-) TimerEvent: {}
+[18.934383] (-) TimerEvent: {}
+[19.000055] (path_planning) StdoutLine: {'line': b"reading manifest file 'path_planning.egg-info/SOURCES.txt'\n"}
+[19.034558] (-) TimerEvent: {}
+[19.135299] (-) TimerEvent: {}
+[19.215876] (path_planning) StdoutLine: {'line': b"writing manifest file 'path_planning.egg-info/SOURCES.txt'\n"}
+[19.235488] (-) TimerEvent: {}
+[19.336156] (-) TimerEvent: {}
+[19.436824] (-) TimerEvent: {}
+[19.537467] (-) TimerEvent: {}
+[19.638114] (-) TimerEvent: {}
+[19.659592] (path_planning) StdoutLine: {'line': b'running build_ext\n'}
+[19.666425] (path_planning) StdoutLine: {'line': b'Creating /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/python3.8/site-packages/path-planning.egg-link (link to .)\n'}
+[19.690386] (path_planning) StdoutLine: {'line': b'Installing trajectory_builder script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning\n'}
+[19.710100] (path_planning) StdoutLine: {'line': b'Installing trajectory_follower script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning\n'}
+[19.731268] (path_planning) StdoutLine: {'line': b'Installing trajectory_loader script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning\n'}
+[19.738442] (-) TimerEvent: {}
+[19.750314] (path_planning) StdoutLine: {'line': b'Installing trajectory_planner script to /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/lib/path_planning\n'}
+[19.776702] (path_planning) StdoutLine: {'line': b'\n'}
+[19.777601] (path_planning) StdoutLine: {'line': b'Installed /home/racecar/racecar_ws/src/lab6_path_planning/build/path_planning\n'}
+[19.782908] (path_planning) StdoutLine: {'line': b'running install_data\n'}
+[19.838589] (-) TimerEvent: {}
+[19.939855] (-) TimerEvent: {}
+[20.040695] (-) TimerEvent: {}
+[20.141945] (-) TimerEvent: {}
+[20.199438] (path_planning) StdoutLine: {'line': b'creating /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/maps\n'}
+[20.210978] (path_planning) StdoutLine: {'line': b'copying maps/image.png -> /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/maps\n'}
+[20.242065] (-) TimerEvent: {}
+[20.245112] (path_planning) StdoutLine: {'line': b'copying maps/stata_basement.png -> /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/maps\n'}
+[20.279593] (path_planning) StdoutLine: {'line': b'copying maps/stata_basement.yaml -> /home/racecar/racecar_ws/src/lab6_path_planning/install/path_planning/share/path_planning/maps\n'}
+[20.339902] (path_planning) CommandEnded: {'returncode': 0}
+[20.343084] (-) TimerEvent: {}
+[20.443729] (-) TimerEvent: {}
+[20.546150] (-) TimerEvent: {}
+[20.646716] (-) TimerEvent: {}
+[20.747227] (-) TimerEvent: {}
+[20.847712] (-) TimerEvent: {}
+[20.948249] (-) TimerEvent: {}
+[21.049064] (-) TimerEvent: {}
+[21.150894] (-) TimerEvent: {}
+[21.252712] (-) TimerEvent: {}
+[21.254661] (path_planning) JobEnded: {'identifier': 'path_planning', 'rc': 0}
+[21.269606] (-) EventReactorShutdown: {}

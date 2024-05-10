@@ -63,6 +63,8 @@ class PurePursuit(Node):
 
         self.initialized_traj = False
 
+        self.viz_tools = VisualizationTools()
+
         self.get_logger().info("=============================FOLLOWER READY=============================")
 
 
@@ -118,13 +120,13 @@ class PurePursuit(Node):
 
 
         # Visualize Stuff
-        VisualizationTools.plot_line(np.array([0, car_to_target_x]), np.array([0, car_to_target_y]), self.target_pub, frame="base_link")
+        self.viz_tools.plot_line(np.array([0, car_to_target_x]), np.array([0, car_to_target_y]), self.target_pub, frame="base_link")
         angles = np.linspace(-np.pi, np.pi, 100)
         circle_x = self.lookahead * np.cos(angles)
         circle_y = self.lookahead * np.sin(angles)
         circle_x = 0.9 * np.cos(angles)
         circle_y = 0.9 * np.sin(angles)
-        VisualizationTools.plot_line(circle_x, circle_y, self.radius_pub, frame="base_link")
+        self.viz_tools.plot_line(circle_x, circle_y, self.radius_pub, frame="base_link")
 
 
         # angle to target point

@@ -116,8 +116,10 @@ class PathPlan(Node):
         self.current_pose = None
         self.goal_pose = None
         self.map = None
-        self.trajectory = [nominal_path]  # initialize trajectory to nominal
+        self.trajectory = [nominal_path.copy()]  # initialize trajectory to nominal
+        self.nominal_trajectory = nominal_path.copy()
         self.traj_idx = 0  # between 0 and 3, depending on whether we're going for shell 1, 2, 3, or returning to start.
+        self.traj_colors = [(1.0, 0.5, 0.5), (0.5, 1.0, 0.5), (0.5, 0.5, 1.0), (1.0, 1.0, 0.5)]
 
         x = 25.900000
         y = 48.50000
@@ -126,6 +128,8 @@ class PathPlan(Node):
         self.transform = np.array([[np.cos(theta), -np.sin(theta), x],
                                     [np.sin(theta), np.cos(theta), y],
                                     [0,0,1]])
+        
+        self.viz_tools = VisualizationTools()
 
         self.get_logger().info("=============================PLANNER READY=============================")
 
@@ -190,7 +194,9 @@ class PathPlan(Node):
         theta = 2 * np.arctan2(orientation_z, orientation_w)
         self.goal_pose = np.array([position_x, position_y, theta])
 
-        print(f"goal pose set: {self.goal_pose}")
+        # print(f"goal pose set: {self.goal_pose}")
+
+        self.viz_tools.plot_line([point['x'] for point in self.trajectory[self.traj_idx]["points"]], [point['y'] for point in self.trajectory[self.traj_idx]["points"]], self.trajectory_pub, color=(1.0, 1.0, 1.0), increment_id=True, scale=0.15)
 
         
     def shell_cb(self, msg):
@@ -203,7 +209,7 @@ class PathPlan(Node):
 
         self.plan_path(self.shell_pose, self.map)
 
-        self.get_logger().info(f"shell_pose set: {self.goal_pose}")
+        self.get_logger().info(f"shell_pose set: {self.shell_pose}")
 
 
     def publish_point(self, point, publisher, r, g, b, size=0.3):
@@ -382,7 +388,6 @@ class PathPlan(Node):
             x_coords = np.flip(x_coords)
             y_coords = np.flip(y_coords)
 
-
         closest_pt_to_shell_idx = None
         closest_pt_to_shell_dist = np.inf
         for i in range(np.shape(x_coords)[0]):
@@ -419,6 +424,8 @@ class PathPlan(Node):
 
     def plan_path(self, shell_point, map):
         self.get_logger().info(f"PLANNING PATH TO {shell_point}")
+
+        self.id += 1
 
         shell_pos = shell_point[:2]
 
@@ -482,22 +489,26 @@ class PathPlan(Node):
                 if closest_idx < len(self.trajectory[self.traj_idx]["points"])-1:
                     deviation_pt_2 = self.plan_deviation(closest_idx+1, closest_pt, circle_center, shell_pos, "e")
                 last_traj_idx_to_follow = closest_idx-1
+                next_traj_idx_to_follow = last_traj_idx_to_follow + 2
             else:
                 deviation_pt_1 = self.plan_deviation(closest_segment[0], closest_pt, circle_center, shell_pos, "s")
                 deviation_pt_2 = self.plan_deviation(closest_segment[1], closest_pt, circle_center, shell_pos, "e")
                 last_traj_idx_to_follow = closest_segment[0]
+                next_traj_idx_to_follow = last_traj_idx_to_follow + 1
 
             circle_pts, closest_circle_pt_to_shell_idx = self.circle_to_trajectory(circle_center, self.TURN_RADIUS, deviation_pt_1, deviation_pt_2, shell_pos)
-            if circle_pts.any() == None:
-                self.get_logger().info("Circular path is in collision. Reverting to backup strategy.")
+
+        # Update the "global" trajectory
+        self.nominal_trajectory = {"points": self.trajectory[self.traj_idx]["points"][:last_traj_idx_to_follow+1] + [{"x": p[0], "y": p[1]} for p in circle_pts] + self.trajectory[self.traj_idx]["points"][next_traj_idx_to_follow:]}
 
         self.get_logger().info(f"closest_circle_pt_to_shell_idx: {closest_circle_pt_to_shell_idx}")
         self.trajectory[self.traj_idx]["points"] = self.trajectory[self.traj_idx]["points"][:last_traj_idx_to_follow+1]  # remove points beyond
         self.trajectory[self.traj_idx]["points"] += [{"x": p[0], "y": p[1]} for p in circle_pts[:closest_circle_pt_to_shell_idx+1]]  # add points in circle deviation
 
-        self.get_logger().info(f" self.trajectory[self.traj_idx]: { self.trajectory[self.traj_idx]}")
+        self.get_logger().info(f" self.trajectory[{self.traj_idx}]: { self.trajectory[self.traj_idx]}")
 
-        VisualizationTools.plot_line([point['x'] for point in self.trajectory[self.traj_idx]["points"]], [point['y'] for point in self.trajectory[self.traj_idx]["points"]], self.trajectory_pub)
+        self.viz_tools.plot_line([point['x'] for point in self.trajectory[self.traj_idx]["points"]], [point['y'] for point in self.trajectory[self.traj_idx]["points"]], self.trajectory_pub, color=self.traj_colors[self.traj_idx], increment_id=True)
+        self.id += 1
 
         # Publish PoseArray
         traj_pose_array = PoseArray()
@@ -512,6 +523,16 @@ class PathPlan(Node):
         traj_pose_array.header.frame_id = "/map"  # replace with your frame id
 
         self.traj_pub.publish(traj_pose_array)
+
+        self.traj_idx += 1
+
+        # Modify the next trajectory to start at the end of the current trajectory
+        self.trajectory.append({"points": self.nominal_trajectory["points"][last_traj_idx_to_follow + closest_circle_pt_to_shell_idx+1:]})
+
+        self.get_logger().info(f"self.trajectory[{self.traj_idx}]: { self.trajectory[self.traj_idx]}")
+
+        self.viz_tools.plot_line([point['x'] for point in self.trajectory[self.traj_idx]["points"]], [point['y'] for point in self.trajectory[self.traj_idx]["points"]], self.trajectory_pub, color=self.traj_colors[self.traj_idx])
+        self.id += 1
 
 
 def main(args=None):
